@@ -1,0 +1,6 @@
+@PostCare_HostAddress = http://localhost:5273
+
+GET {{PostCare_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
