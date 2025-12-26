@@ -9,16 +9,21 @@ namespace PostCare.core.Entities
 {
     public class SleepReference
     {
+        [Key]
         public int SleepRefId { get; set; }
-        public int? AgeMaxMonths { get; set; }
+
         public int? AgeMinMonths { get; set; }
+
+        public int? AgeMaxMonths { get; set; }
+
         public TimeSpan? SleepMinHours { get; set; }
+
         public TimeSpan? SleepMaxHours { get; set; }
+
+        [MaxLength(500)]
         public string Notes { get; set; }
 
-        // Navigation Properties
+        // Navigation Property
         public virtual ICollection<ChildSleepRecord> ChildSleepRecords { get; set; }
-        public virtual ICollection<GrowthReports> GrowthReports { get; set; }
-
     }
 }

@@ -10,24 +10,34 @@ namespace PostCare.core.Entities
 {
     public class PostReports
     {
-        public class PostReport
-        {
-            public int Id { get; set; }
-            public string Reason { get; set; }
-            public DateTime CreatedAt { get; set; }
+        [Key]
+        public int ReportId { get; set; }
 
-            // ========= Reporter (Mother) =========
-            public string ReporterId { get; set; }
-            public Users Reporter { get; set; }
+        [Required]
+        public int PostId { get; set; }
 
-            // ========= Reviewed By (Admin) =========
-            public string? ReviewedById { get; set; }
-            public Users ReviewedBy { get; set; }
-        }
+        [Required]
+        public int ReporterId { get; set; }
 
+        [Required]
+        [MaxLength(500)]
+        public string Reason { get; set; }
+
+        public int? ReviewedById { get; set; }
+
+        [Required]
+        public DateTime CreatedAt { get; set; } = DateTime.Now;
+
+        public DateTime? ReviewedAt { get; set; }
 
         // Navigation Properties
+        [ForeignKey("PostId")]
         public virtual CommunityPosts Post { get; set; }
-        public virtual Users User { get; set; }
+
+        [ForeignKey("ReporterId")]
+        public virtual Users Reporter { get; set; }
+
+        [ForeignKey("ReviewedById")]
+        public virtual Users ReviewedBy { get; set; }
     }
 }

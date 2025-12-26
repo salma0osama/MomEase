@@ -13,5 +13,7 @@
     public enum MetricType{ Weight, Height }
     public enum GrowthStatus{SevereUnder,Under,Normal,Over,Obese}
 
+    public enum SkinAnalysisDiseaseName { }
+
 
 }

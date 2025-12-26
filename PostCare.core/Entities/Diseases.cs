@@ -1,4 +1,5 @@
-﻿using System;
+﻿using PostCare.core.Enums;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Linq;
@@ -9,11 +10,16 @@ namespace PostCare.core.Entities
 {
     public class Diseases
     {
+        [Key]
         public int DiseaseId { get; set; }
-        public string Name { get; set; }
+
+        [Required]
+        [MaxLength(255)]
+        public SkinAnalysisDiseaseName Name { get; set; }
+
         public string Advice { get; set; }
 
-        // Navigation Properties
+        // Navigation Property
         public virtual ICollection<SkinAnalyses> SkinAnalyses { get; set; }
     }
 }

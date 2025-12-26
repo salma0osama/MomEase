@@ -9,11 +9,16 @@ namespace PostCare.core.Entities
 {
     public class ArticleCategories
     {
+        [Key]
         public int CategoryId { get; set; }
+
+        [Required]
+        [MaxLength(255)]
         public string Name { get; set; }
+
         public string Description { get; set; }
 
-        // Navigation Properties
+        // Navigation Property
         public virtual ICollection<Articles> Articles { get; set; }
     }
 }

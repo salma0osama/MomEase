@@ -10,15 +10,31 @@ namespace PostCare.core.Entities
 {
     public class Users
     {
+        [Key]
         public int UserId { get; set; }
+
+        [Required, MaxLength(100)]
         public string FirstName { get; set; }
+
+        [Required, MaxLength(100)]
         public string LastName { get; set; }
+
+        [Required, MaxLength(255), EmailAddress]
         public string Email { get; set; }
+
+        [Required, MaxLength(255)]
         public string Password { get; set; }
+
+        [MaxLength(20)]
         public string Phone { get; set; }
+
         public int? Age { get; set; }
-        public Role Role { get; set; }
-        public DateTime CreatedAt { get; set; }
+
+        [Required]
+        public Role Role { get; set; } = Role.MOTHER;
+
+        [Required]
+        public DateTime CreatedAt { get; set; } = DateTime.Now;
 
         // Navigation Properties
         public virtual MotherProfile MotherProfile { get; set; }
@@ -30,10 +46,13 @@ namespace PostCare.core.Entities
         public virtual ICollection<CommunityPosts> CommunityPosts { get; set; }
         public virtual ICollection<PostComments> PostComments { get; set; }
         public virtual ICollection<PostReactions> PostReactions { get; set; }
-        public virtual ICollection<ArticleCategories> ArticleCategories { get; set; }
-        public ICollection<PostReports> SubmittedReports { get; set; }
-        public ICollection<PostReports> ReviewedReports { get; set; }
-
+        public virtual ICollection<PostReports> SubmittedReports { get; set; }
+        public virtual ICollection<PostReports> ReviewedReports { get; set; }
         public virtual ICollection<Notifications> Notifications { get; set; }
+        public virtual ICollection<UserResponse> UserResponses { get; set; }
+        public virtual ICollection<ArticleCategories> ArticleCategories { get; set; }
+
+        public virtual ICollection<RefreshToken> RefreshTokens { get; set; }
+
     }
 }

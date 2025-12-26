@@ -11,10 +11,18 @@ namespace PostCare.core.Entities
 {
     public class GrowthPercentileReference
     {
+        [Key]
         public int RefId { get; set; }
+
+        [Required]
         public Gender Gender { get; set; }
+
+        [Required]
         public int AgeMonths { get; set; }
+
+        [Required]
         public MetricType Metric_Type { get; set; }
+
         public decimal? P5 { get; set; }
         public decimal? P10 { get; set; }
         public decimal? P25 { get; set; }
@@ -22,9 +30,12 @@ namespace PostCare.core.Entities
         public decimal? P75 { get; set; }
         public decimal? P90 { get; set; }
         public decimal? P95 { get; set; }
-        public string Notes { get; set; }
-        //public virtual ICollection<GrowthRecords> GrowthRecords { get; set; }
 
+        [MaxLength(500)]
+        public string Notes { get; set; }
+
+        // Navigation Property
+        public virtual ICollection<GrowthReports> GrowthReports { get; set; }
     }
 
 }

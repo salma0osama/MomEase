@@ -10,14 +10,24 @@ namespace PostCare.core.Entities
 {
     public class GrowthRecords
     {
+        [Key]
         public int GrowthId { get; set; }
+
+        [Required]
         public int ChildId { get; set; }
+
+        [Required]
         public DateTime RecordDate { get; set; }
+
+        [Required]
         public int AgeInWeeks { get; set; }
+
         public decimal? WeightKg { get; set; }
+
         public decimal? HeightCm { get; set; }
 
-        // Navigation Properties
+        // Navigation Property
+        [ForeignKey("ChildId")]
         public virtual Child Child { get; set; }
     }
 }

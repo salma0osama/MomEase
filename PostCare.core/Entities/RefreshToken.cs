@@ -8,32 +8,44 @@ using System.Threading.Tasks;
 
 namespace PostCare.core.Entities
 {
-    public class Notifications
+    public class RefreshToken
     {
         [Key]
-        public int NotificationId { get; set; }
+        public int Id { get; set; }
 
         [Required]
         public int UserId { get; set; }
 
         [Required]
-        [MaxLength(255)]
-        public string Title { get; set; }
-
-        [Required]
-        public string Body { get; set; }
-
         [MaxLength(500)]
-        public string ActionUrl { get; set; }
+        public string Token { get; set; }
 
         [Required]
-        public bool IsRead { get; set; } = false;
+        public DateTime ExpiresAt { get; set; }
 
         [Required]
         public DateTime CreatedAt { get; set; } = DateTime.Now;
 
+        public DateTime? RevokedAt { get; set; }
+
+        [MaxLength(50)]
+        public string CreatedByIp { get; set; }
+
+        [MaxLength(50)]
+        public string RevokedByIp { get; set; }
+
+        [NotMapped]
+        public bool IsExpired => DateTime.Now >= ExpiresAt;
+
+        [NotMapped]
+        public bool IsRevoked => RevokedAt != null;
+
+        [NotMapped]
+        public bool IsActive => !IsRevoked && !IsExpired;
+
         // Navigation Property
         [ForeignKey("UserId")]
         public virtual Users User { get; set; }
-    }
+    
+}
 }

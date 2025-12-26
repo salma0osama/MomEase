@@ -10,13 +10,19 @@ namespace PostCare.core.Entities
 {
     public class ChatBot
     {
+        [Key]
         public int ChatId { get; set; }
-        public int UserId { get; set; }
-        public DateTime Created_At { get; set; }
 
+        [Required]
+        public int UserId { get; set; }
+
+        [Required]
+        public DateTime Created_At { get; set; } = DateTime.Now;
 
         // Navigation Properties
+        [ForeignKey("UserId")]
         public virtual Users User { get; set; }
+
         public virtual ICollection<ChatMessages> ChatMessages { get; set; }
     }
 }

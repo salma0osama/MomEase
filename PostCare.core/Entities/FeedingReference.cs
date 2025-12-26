@@ -10,18 +10,24 @@ namespace PostCare.core.Entities
 {
     public class FeedingReference
     {
+        [Key]
         public int FeedingRefId { get; set; }
+
+        [Required]
         public FeedingType FeedingType { get; set; }
-        public int? AgeMaxMonths { get; set; }
+
         public int? AgeMinMonths { get; set; }
+
+        public int? AgeMaxMonths { get; set; }
+
         public int? MinTimesPerDay { get; set; }
+
         public int? MaxTimesPerDay { get; set; }
 
+        [MaxLength(500)]
         public string Notes { get; set; }
 
-        // Navigation Properties
+        // Navigation Property
         public virtual ICollection<ChildFeedingRecord> ChildFeedingRecords { get; set; }
-        public virtual ICollection<GrowthReports> GrowthReports { get; set; }
-
     }
 }

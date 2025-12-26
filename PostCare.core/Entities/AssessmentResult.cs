@@ -11,16 +11,33 @@ namespace PostCare.core.Entities
 {
     public class AssessmentResult
     {
+        [Key]
         public int ResultId { get; set; }
+
+        [Required]
         public int UserId { get; set; }
+
+        [Required]
         public int AssessmentId { get; set; }
+
+        [Required]
         public int TotalScore { get; set; }
+
         public int? LevelId { get; set; }
-        public DateTime CompletedAt { get; set; }
+
+        [Required]
+        public DateTime CompletedAt { get; set; } = DateTime.Now;
 
         // Navigation Properties
+        [ForeignKey("UserId")]
         public virtual Users User { get; set; }
+
+        [ForeignKey("AssessmentId")]
         public virtual Assessment Assessment { get; set; }
+
+        [ForeignKey("LevelId")]
         public virtual ScoreLevel ScoreLevel { get; set; }
+
+        public virtual ICollection<UserResponse> UserResponses { get; set; }
     }
 }

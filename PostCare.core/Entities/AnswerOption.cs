@@ -10,14 +10,24 @@ namespace PostCare.core.Entities
 {
     public class AnswerOption
     {
+        [Key]
         public int OptionId { get; set; }
+
+        [Required]
         public int QuestionId { get; set; }
+
+        [Required]
         public string OptionText { get; set; }
+
+        [Required]
         public int Score { get; set; }
+
         public int? OptionOrder { get; set; }
 
         // Navigation Properties
+        [ForeignKey("QuestionId")]
         public virtual Question Question { get; set; }
+
         public virtual ICollection<UserResponse> UserResponses { get; set; }
     }
 }
