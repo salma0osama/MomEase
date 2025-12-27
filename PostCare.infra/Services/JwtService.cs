@@ -61,19 +61,36 @@ namespace PostCare.infra.Services
 
         public async Task<RefreshToken> CreateRefreshTokenAsync(int userId, string token, string ipAddress)
         {
-            var refreshToken = new RefreshToken
+            try
             {
-                UserId = userId,
-                Token = token,
-                ExpiresAt = DateTime.Now.AddDays(_jwtSettings.RefreshTokenExpirationDays),
-                CreatedAt = DateTime.Now,
-                CreatedByIp = ipAddress
-            };
+                Console.WriteLine($"[DEBUG] Creating RefreshToken for UserId: {userId}");
+                Console.WriteLine($"[DEBUG] Token Length: {token.Length}");
+                Console.WriteLine($"[DEBUG] IP Address: {ipAddress}");
 
-            _context.RefreshTokens.Add(refreshToken);
-            await _context.SaveChangesAsync();
+                var refreshToken = new RefreshToken
+                {
+                    UserId = userId,
+                    Token = token,
+                    ExpiresAt = DateTime.Now.AddDays(_jwtSettings.RefreshTokenExpirationDays),
+                    CreatedAt = DateTime.Now,
+                    CreatedByIp = ipAddress
+                };
 
-            return refreshToken;
+                _context.RefreshTokens.Add(refreshToken);
+
+                Console.WriteLine("[DEBUG] Before SaveChanges...");
+                await _context.SaveChangesAsync();
+                Console.WriteLine("[DEBUG] SaveChanges SUCCESS!");
+
+                return refreshToken;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[ERROR] CreateRefreshToken failed: {ex.Message}");
+                Console.WriteLine($"[ERROR] Inner Exception: {ex.InnerException?.Message}");
+                Console.WriteLine($"[ERROR] Stack Trace: {ex.StackTrace}");
+                throw;
+            }
         }
 
         public async Task<RefreshToken> GetRefreshTokenAsync(string token)
@@ -85,16 +102,24 @@ namespace PostCare.infra.Services
 
         public async Task RevokeRefreshTokenAsync(string token, string ipAddress)
         {
+            Console.WriteLine($"[DEBUG] Revoke Token: {token}");
+            Console.WriteLine($"[DEBUG] IP Address: {ipAddress ?? "NULL"}");
+
             var refreshToken = await GetRefreshTokenAsync(token);
 
-            if (refreshToken == null || !refreshToken.IsActive)
+            if (refreshToken == null)
+            {
+                Console.WriteLine("[DEBUG] RefreshToken not found!");
                 return;
+            }
+
+            Console.WriteLine($"[DEBUG] Token found, IsActive: {refreshToken.IsActive}");
 
             refreshToken.RevokedAt = DateTime.Now;
-            refreshToken.RevokedByIp = ipAddress;
+            refreshToken.RevokedByIp = ipAddress ?? "Unknown";
 
-            _context.RefreshTokens.Update(refreshToken);
             await _context.SaveChangesAsync();
+            Console.WriteLine("[DEBUG] Token revoked successfully!");
         }
 
         public async Task<bool> ValidateRefreshTokenAsync(string token)

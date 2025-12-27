@@ -93,13 +93,13 @@ namespace PostCare.api.Controllers
             }
         }
 
-        [Authorize]
+        //[Authorize]
         [HttpPost("revoke-token")]
         public async Task<IActionResult> RevokeToken([FromBody] RefreshTokenDto refreshTokenDto)
         {
             try
             {
-                var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString();
+                var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "Unknown";
                 await _authService.RevokeTokenAsync(refreshTokenDto.RefreshToken, ipAddress);
 
                 return Ok(new

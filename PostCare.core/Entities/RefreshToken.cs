@@ -32,7 +32,7 @@ namespace PostCare.core.Entities
         public string CreatedByIp { get; set; }
 
         [MaxLength(50)]
-        public string RevokedByIp { get; set; }
+        public string? RevokedByIp { get; set; }
 
         [NotMapped]
         public bool IsExpired => DateTime.Now >= ExpiresAt;
