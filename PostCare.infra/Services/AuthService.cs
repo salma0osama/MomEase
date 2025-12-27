@@ -168,5 +168,70 @@ namespace PostCare.infra.Services
 
             return true;
         }
+        public async Task LogoutAsync(string refreshToken, string ipAddress)
+        {
+            var token = await _context.RefreshTokens
+        .FirstOrDefaultAsync(t => t.Token == refreshToken
+                                  && t.RevokedAt == null               // ميكنش اتلغى قبل كدا
+                                  && t.ExpiresAt > DateTime.Now);
+            if (token == null)
+                throw new Exception("Invalid token");
+
+            // Revoke the token
+            token.RevokedAt = DateTime.Now;
+            token.RevokedByIp = ipAddress;
+
+            await _context.SaveChangesAsync();
+        }
+        
+        public async Task<string> ForgotPasswordAsync(string email)
+        {
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == email);
+
+            if (user == null)
+                throw new Exception("User not found");
+
+            // توليد توكن فريد بطريقة آمنة وبسيطة
+            var resetToken = Guid.NewGuid().ToString("N") + Guid.NewGuid().ToString("N");
+            // "N" بتطلع نص مكون من حروف وأرقام فقط بدون شرط (32 حرف)
+
+            var passwordResetToken = new PasswordResetToken
+            {
+                UserId = user.UserId,
+                Token = resetToken,
+                ExpiresAt = DateTime.Now.AddHours(1),
+                CreatedAt = DateTime.Now
+            };
+
+            _context.PasswordResetTokens.Add(passwordResetToken);
+            await _context.SaveChangesAsync();
+
+            return resetToken;
+        }
+
+        public async Task ResetPasswordAsync(string token, string newPassword)
+        {
+            var resetToken = await _context.PasswordResetTokens
+                .Include(t => t.User)
+                .FirstOrDefaultAsync(t => t.Token == token);
+
+            if (resetToken == null)
+                throw new Exception("Invalid reset token");
+
+            if (!resetToken.IsValid)
+                throw new Exception("Reset token has expired or already been used");
+
+            // Hash the new password
+            var passwordHash = BCrypt.Net.BCrypt.HashPassword(newPassword);
+
+            // Update user password
+            resetToken.User.Password = passwordHash;
+
+            // Mark token as used
+            resetToken.IsUsed = true;
+            resetToken.UsedAt = DateTime.Now;
+
+            await _context.SaveChangesAsync();
+        }
     }
 }

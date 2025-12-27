@@ -164,5 +164,76 @@ namespace PostCare.api.Controllers
                 }
             });
         }
-}
+        [Authorize]
+        [HttpPost("logout")]
+        public async Task<IActionResult> Logout([FromBody] LogoutDto logoutDto)
+        {
+            try
+            {
+                var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "Unknown";
+                await _authService.LogoutAsync(logoutDto.RefreshToken, ipAddress);
+
+                return Ok(new
+                {
+                    success = true,
+                    message = "Logged out successfully"
+                });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new
+                {
+                    success = false,
+                    message = ex.Message
+                });
+            }
+        }
+        [HttpPost("forgot-password")]
+        public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordDto forgotPasswordDto)
+        {
+            try
+            {
+                var resetToken = await _authService.ForgotPasswordAsync(forgotPasswordDto.Email);
+
+                return Ok(new
+                {
+                    success = true,
+                    message = "Password reset link has been sent to your email",
+                    // في الإنتاج لا ترسل الـ token في الـ response
+                    // أرسله فقط عبر الإيميل
+                    data = new { resetToken } // Remove this in production
+                });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new
+                {
+                    success = false,
+                    message = ex.Message
+                });
+            }
+        }
+        [HttpPost("reset-password")]
+        public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordDto resetPasswordDto)
+        {
+            try
+            {
+                await _authService.ResetPasswordAsync(resetPasswordDto.Token, resetPasswordDto.NewPassword);
+
+                return Ok(new
+                {
+                    success = true,
+                    message = "Password has been reset successfully"
+                });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new
+                {
+                    success = false,
+                    message = ex.Message
+                });
+            }
+        }
+    }
 }

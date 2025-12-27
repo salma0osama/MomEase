@@ -14,5 +14,8 @@ namespace PostCare.core.Interfaces
         Task<AuthResponseDto> RefreshTokenAsync(string refreshToken, string ipAddress);
         Task<bool> RevokeTokenAsync(string refreshToken, string ipAddress);
         Task<bool> ChangePasswordAsync(int userId, ChangePasswordDto changePasswordDto);
+        Task LogoutAsync(string refreshToken, string ipAddress);
+        Task<string> ForgotPasswordAsync(string email);
+        Task ResetPasswordAsync(string token, string newPassword);
     }
 }

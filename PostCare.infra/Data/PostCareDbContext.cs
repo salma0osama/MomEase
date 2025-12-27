@@ -64,7 +64,7 @@ namespace PostCare.infra.Data
             public DbSet<ChatMessages> ChatMessages { get; set; }
 
             public DbSet<RefreshToken> RefreshTokens { get; set; }
-
+            public DbSet<PasswordResetToken> PasswordResetTokens { get; set; }
         // ============================
         // Fluent API
         // ============================
