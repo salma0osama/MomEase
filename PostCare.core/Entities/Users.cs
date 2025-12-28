@@ -36,6 +36,10 @@ namespace PostCare.core.Entities
         [Required]
         public DateTime CreatedAt { get; set; } = DateTime.Now;
 
+        public bool IsEmailVerified { get; set; } = false;
+        public string? EmailVerificationToken { get; set; }
+        public DateTime? EmailVerificationTokenExpiry { get; set; }
+
         // Navigation Properties
         public virtual MotherProfile MotherProfile { get; set; }
         public virtual ICollection<Child> Children { get; set; }

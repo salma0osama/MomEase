@@ -10,14 +10,15 @@ namespace PostCare.core.DTOS
     public class ResetPasswordDto
     {
         [Required]
-        public string Token { get; set; }
+        public string Email { get; set; }       
+        public string OtpCode { get; set; }    
 
         [Required]
         [MinLength(6)]
         public string NewPassword { get; set; }
 
-        [Required]
-        [Compare("NewPassword")]
-        public string ConfirmPassword { get; set; }
+        //[Required]
+        //[Compare("NewPassword")]
+        //public string ConfirmPassword { get; set; }
     }
 }

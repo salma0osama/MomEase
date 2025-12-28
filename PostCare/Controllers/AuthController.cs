@@ -198,7 +198,7 @@ namespace PostCare.api.Controllers
                 return Ok(new
                 {
                     success = true,
-                    message = "Password reset link has been sent to your email",
+                    message = "A password reset code has been sent to your email.",
                     // في الإنتاج لا ترسل الـ token في الـ response
                     // أرسله فقط عبر الإيميل
                     data = new { resetToken } // Remove this in production
@@ -218,12 +218,61 @@ namespace PostCare.api.Controllers
         {
             try
             {
-                await _authService.ResetPasswordAsync(resetPasswordDto.Token, resetPasswordDto.NewPassword);
+                await _authService.ResetPasswordAsync(
+                    resetPasswordDto.OtpCode,
+                    resetPasswordDto.Email,
+                    resetPasswordDto.NewPassword
+                );
 
                 return Ok(new
                 {
                     success = true,
                     message = "Password has been reset successfully"
+                });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new
+                {
+                    success = false,
+                    message = ex.Message
+                });
+            }
+        }
+        [HttpPost("verify-email")]
+        public async Task<IActionResult> VerifyEmail([FromBody] VerifyEmailDto verifyEmailDto)
+        {
+            try
+            {
+                await _authService.VerifyEmailAsync(verifyEmailDto);
+
+                return Ok(new
+                {
+                    success = true,
+                    message = "Email verified successfully! You can now login."
+                });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new
+                {
+                    success = false,
+                    message = ex.Message
+                });
+            }
+        }
+
+        [HttpPost("resend-otp")]
+        public async Task<IActionResult> ResendOtp([FromBody] ResendOtpDto resendOtpDto)
+        {
+            try
+            {
+                await _authService.ResendOtpAsync(resendOtpDto.Email);
+
+                return Ok(new
+                {
+                    success = true,
+                    message = "OTP code sent successfully to your email"
                 });
             }
             catch (Exception ex)

@@ -17,23 +17,29 @@ namespace PostCare.infra.Services
 {
     public class AuthService : IAuthService
     {
-        private readonly PostCareDbContext _context;
+        private readonly IAuthRepository _authRepository;
         private readonly IJwtService _jwtService;
+        private readonly IEmailService _emailService;
 
-        public AuthService(PostCareDbContext context, IJwtService jwtService)
+        public AuthService(
+            IAuthRepository authRepository,
+            IJwtService jwtService,
+            IEmailService emailService)
         {
-            _context = context;
+            _authRepository = authRepository;
             _jwtService = jwtService;
+            _emailService = emailService;
         }
 
         public async Task<AuthResponseDto> RegisterAsync(RegisterDto registerDto, string ipAddress)
         {
-            // Check if email already exists
-            if (await _context.Users.AnyAsync(u => u.Email == registerDto.Email))
+            // Check if email exists
+            if (await _authRepository.EmailExistsAsync(registerDto.Email))
                 throw new Exception("Email already exists");
 
             // Hash password
             var hashedPassword = BCrypt.Net.BCrypt.HashPassword(registerDto.Password);
+            var otpCode = GenerateOtpCode();
 
             // Create user
             var user = new Users
@@ -45,27 +51,21 @@ namespace PostCare.infra.Services
                 Phone = registerDto.Phone,
                 Age = registerDto.Age,
                 Role = Role.MOTHER,
-                CreatedAt = DateTime.Now
+                CreatedAt = DateTime.Now,
+                IsEmailVerified = false,
+                EmailVerificationToken = otpCode,
+                EmailVerificationTokenExpiry = DateTime.Now.AddMinutes(1)
             };
 
-            _context.Users.Add(user);
-            await _context.SaveChangesAsync();
+            await _authRepository.AddUserAsync(user);
+            await _authRepository.SaveChangesAsync();
 
-            // Create Mother Profile
-            var motherProfile = new MotherProfile
-            {
-                UserId = user.UserId,
-                IsFirstTimeMother = true,
-                NumberOfChildren = 0
-            };
-
-            _context.MotherProfiles.Add(motherProfile);
-            await _context.SaveChangesAsync();
-
-            // Generate tokens
-            var accessToken = _jwtService.GenerateAccessToken(user);
-            var refreshToken = _jwtService.GenerateRefreshToken();
-            await _jwtService.CreateRefreshTokenAsync(user.UserId, refreshToken, ipAddress);
+            // Send OTP Email
+            await _emailService.SendOtpEmailAsync(
+                user.Email,
+                otpCode,
+                $"{user.FirstName} {user.LastName}"
+            );
 
             return new AuthResponseDto
             {
@@ -74,18 +74,17 @@ namespace PostCare.infra.Services
                 LastName = user.LastName,
                 Email = user.Email,
                 Role = user.Role.ToString(),
-                AccessToken = accessToken,
-                RefreshToken = refreshToken,
-                AccessTokenExpiration = DateTime.Now.AddMinutes(120),
-                RefreshTokenExpiration = DateTime.Now.AddDays(14)
+                AccessToken = null,
+                RefreshToken = null,
+                AccessTokenExpiration = null,
+                RefreshTokenExpiration = null
             };
         }
 
         public async Task<AuthResponseDto> LoginAsync(LoginDto loginDto, string ipAddress)
         {
             // Find user
-            var user = await _context.Users
-                .FirstOrDefaultAsync(u => u.Email == loginDto.Email);
+            var user = await _authRepository.GetUserByEmailAsync(loginDto.Email);
 
             if (user == null)
                 throw new Exception("Invalid email or password");
@@ -94,6 +93,10 @@ namespace PostCare.infra.Services
             if (!BCrypt.Net.BCrypt.Verify(loginDto.Password, user.Password))
                 throw new Exception("Invalid email or password");
 
+            // Check email verification
+            if (!user.IsEmailVerified)
+                throw new Exception("Please verify your email before logging in.");
+
             // Generate tokens
             var accessToken = _jwtService.GenerateAccessToken(user);
             var refreshToken = _jwtService.GenerateRefreshToken();
@@ -113,15 +116,73 @@ namespace PostCare.infra.Services
             };
         }
 
+        public async Task<bool> VerifyEmailAsync(VerifyEmailDto verifyEmailDto)
+        {
+            var user = await _authRepository.GetUserByEmailAsync(verifyEmailDto.Email);
+
+            if (user == null)
+                throw new Exception("User not found");
+
+            if (user.IsEmailVerified)
+                throw new Exception("Email already verified");
+
+            if (user.EmailVerificationToken != verifyEmailDto.OtpCode)
+                throw new Exception("Invalid OTP code");
+
+            if (user.EmailVerificationTokenExpiry < DateTime.Now)
+                throw new Exception("OTP code has expired. Please request a new one.");
+
+            // Mark as verified
+            user.IsEmailVerified = true;
+            user.EmailVerificationToken = null;
+            user.EmailVerificationTokenExpiry = null;
+
+            await _authRepository.UpdateUserAsync(user);
+            await _authRepository.SaveChangesAsync();
+
+            return true;
+        }
+
+        public async Task<bool> ResendOtpAsync(string email)
+        {
+            var user = await _authRepository.GetUserByEmailAsync(email);
+
+            if (user == null)
+                throw new Exception("User not found");
+
+            if (user.IsEmailVerified)
+                throw new Exception("Email already verified");
+
+            // Generate new OTP
+            var otpCode = GenerateOtpCode();
+            user.EmailVerificationToken = otpCode;
+            user.EmailVerificationTokenExpiry = DateTime.Now.AddMinutes(1);
+
+            await _authRepository.UpdateUserAsync(user);
+            await _authRepository.SaveChangesAsync();
+
+            // Send new OTP
+            await _emailService.SendOtpEmailAsync(
+                user.Email,
+                otpCode,
+                $"{user.FirstName} {user.LastName}"
+            );
+
+            return true;
+        }
+
         public async Task<AuthResponseDto> RefreshTokenAsync(string refreshToken, string ipAddress)
         {
-            var token = await _jwtService.GetRefreshTokenAsync(refreshToken);
+            var token = await _authRepository.GetRefreshTokenAsync(refreshToken);
 
             if (token == null || !token.IsActive)
                 throw new Exception("Invalid refresh token");
 
             // Revoke old token
-            await _jwtService.RevokeRefreshTokenAsync(refreshToken, ipAddress);
+            token.RevokedAt = DateTime.Now;
+            token.RevokedByIp = ipAddress ?? "Unknown";
+            await _authRepository.UpdateRefreshTokenAsync(token);
+            await _authRepository.SaveChangesAsync();
 
             // Generate new tokens
             var user = token.User;
@@ -145,13 +206,23 @@ namespace PostCare.infra.Services
 
         public async Task<bool> RevokeTokenAsync(string refreshToken, string ipAddress)
         {
-            await _jwtService.RevokeRefreshTokenAsync(refreshToken, ipAddress);
+            var token = await _authRepository.GetRefreshTokenAsync(refreshToken);
+
+            if (token == null)
+                return false;
+
+            token.RevokedAt = DateTime.Now;
+            token.RevokedByIp = ipAddress ?? "Unknown";
+
+            await _authRepository.UpdateRefreshTokenAsync(token);
+            await _authRepository.SaveChangesAsync();
+
             return true;
         }
 
         public async Task<bool> ChangePasswordAsync(int userId, ChangePasswordDto changePasswordDto)
         {
-            var user = await _context.Users.FindAsync(userId);
+            var user = await _authRepository.GetUserByIdAsync(userId);
 
             if (user == null)
                 throw new Exception("User not found");
@@ -163,75 +234,117 @@ namespace PostCare.infra.Services
             // Hash and update new password
             user.Password = BCrypt.Net.BCrypt.HashPassword(changePasswordDto.NewPassword);
 
-            _context.Users.Update(user);
-            await _context.SaveChangesAsync();
+            await _authRepository.UpdateUserAsync(user);
+            await _authRepository.SaveChangesAsync();
 
             return true;
         }
+
         public async Task LogoutAsync(string refreshToken, string ipAddress)
         {
-            var token = await _context.RefreshTokens
-        .FirstOrDefaultAsync(t => t.Token == refreshToken
-                                  && t.RevokedAt == null               // ميكنش اتلغى قبل كدا
-                                  && t.ExpiresAt > DateTime.Now);
-            if (token == null)
+            var token = await _authRepository.GetRefreshTokenAsync(refreshToken);
+
+            if (token == null || token.RevokedAt != null || token.ExpiresAt <= DateTime.Now)
                 throw new Exception("Invalid token");
 
-            // Revoke the token
             token.RevokedAt = DateTime.Now;
-            token.RevokedByIp = ipAddress;
+            token.RevokedByIp = ipAddress ?? "Unknown";
 
-            await _context.SaveChangesAsync();
+            await _authRepository.UpdateRefreshTokenAsync(token);
+            await _authRepository.SaveChangesAsync();
         }
-        
+
         public async Task<string> ForgotPasswordAsync(string email)
         {
-            var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == email);
+            var user = await _authRepository.GetUserByEmailAsync(email);
 
             if (user == null)
                 throw new Exception("User not found");
 
-            // توليد توكن فريد بطريقة آمنة وبسيطة
-            var resetToken = Guid.NewGuid().ToString("N") + Guid.NewGuid().ToString("N");
-            // "N" بتطلع نص مكون من حروف وأرقام فقط بدون شرط (32 حرف)
+            // Generate OTP instead of token
+            var otpCode = GenerateOtpCode();
 
             var passwordResetToken = new PasswordResetToken
             {
                 UserId = user.UserId,
-                Token = resetToken,
-                ExpiresAt = DateTime.Now.AddHours(1),
+                Token = otpCode, // استخدم OTP بدل الـ GUID
+                ExpiresAt = DateTime.Now.AddMinutes(10), // 10 دقايق
                 CreatedAt = DateTime.Now
             };
 
-            _context.PasswordResetTokens.Add(passwordResetToken);
-            await _context.SaveChangesAsync();
+            await _authRepository.AddPasswordResetTokenAsync(passwordResetToken);
+            await _authRepository.SaveChangesAsync();
 
-            return resetToken;
+            // ابعت OTP email
+            await _emailService.SendPasswordResetOtpEmailAsync(
+                user.Email,
+                otpCode,
+                $"{user.FirstName} {user.LastName}"
+            );
+
+            return otpCode; // في الـ production متحطوش في الـ response
         }
 
-        public async Task ResetPasswordAsync(string token, string newPassword)
+        public async Task ResetPasswordAsync(string otpCode, string email, string newPassword)
         {
-            var resetToken = await _context.PasswordResetTokens
-                .Include(t => t.User)
-                .FirstOrDefaultAsync(t => t.Token == token);
+            // جيب اليوزر الأول
+            var user = await _authRepository.GetUserByEmailAsync(email);
+
+            if (user == null)
+                throw new Exception("User not found");
+
+            // جيب الـ token بتاع اليوزر ده
+            var resetToken = await _authRepository.GetPasswordResetTokenByUserIdAsync(user.UserId, otpCode);
 
             if (resetToken == null)
-                throw new Exception("Invalid reset token");
+                throw new Exception("Invalid OTP code");
 
             if (!resetToken.IsValid)
-                throw new Exception("Reset token has expired or already been used");
+                throw new Exception("OTP has expired or already been used");
 
-            // Hash the new password
+            // Update password
             var passwordHash = BCrypt.Net.BCrypt.HashPassword(newPassword);
 
-            // Update user password
-            resetToken.User.Password = passwordHash;
-
-            // Mark token as used
+            user.Password = passwordHash;
             resetToken.IsUsed = true;
             resetToken.UsedAt = DateTime.Now;
 
-            await _context.SaveChangesAsync();
+            await _authRepository.UpdateUserAsync(user);
+            await _authRepository.UpdatePasswordResetTokenAsync(resetToken);
+            await _authRepository.SaveChangesAsync();
+        }
+
+        //public async Task ResetPasswordAsync(string otpCode, string email, string newPassword)
+        //{
+        //    var user = await _authRepository.GetUserByEmailAsync(email);
+
+        //    if (user == null)
+        //        throw new Exception("User not found");
+
+        //    var resetToken = await _authRepository.GetPasswordResetTokenByUserIdAsync(user.UserId, otpCode);
+
+        //    if (resetToken == null)
+        //        throw new Exception("Invalid OTP code");
+
+        //    if (!resetToken.IsValid)
+        //        throw new Exception("OTP has expired or already been used");
+
+        //    var passwordHash = BCrypt.Net.BCrypt.HashPassword(newPassword);
+
+        //    user.Password = passwordHash;
+        //    resetToken.IsUsed = true;
+        //    resetToken.UsedAt = DateTime.Now;
+
+        //    await _authRepository.UpdateUserAsync(user);
+        //    await _authRepository.UpdatePasswordResetTokenAsync(resetToken);
+        //    await _authRepository.SaveChangesAsync();
+        //}
+
+        // Helper Method
+        private string GenerateOtpCode()
+        {
+            var random = new Random();
+            return random.Next(1000, 9999).ToString();
         }
     }
 }
