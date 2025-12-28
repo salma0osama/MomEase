@@ -6,6 +6,7 @@ using Microsoft.OpenApi.Models;
 using PostCare.core.Entities;
 using PostCare.core.Interfaces;
 using PostCare.infra.Data;
+using PostCare.infra.Repositories;
 using PostCare.infra.Services;
 using System.Text;
 
@@ -50,10 +51,15 @@ namespace PostCare
 
             builder.Services.AddAuthorization();
 
+            // Register Repository
+            builder.Services.AddScoped<IAuthRepository, AuthRepository>();
+
             // Add services to the container.
             // Register Services
             builder.Services.AddScoped<IJwtService, JwtService>();
             builder.Services.AddScoped<IAuthService, AuthService>();
+
+            builder.Services.AddScoped<IEmailService, EmailService>();
 
             builder.Services.AddControllers();
             // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
