@@ -6,6 +6,7 @@ using Microsoft.OpenApi.Models;
 using PostCare.core.Entities;
 using PostCare.core.Interfaces;
 using PostCare.infra.Data;
+using PostCare.infra.Repositories;
 using PostCare.infra.Services;
 using System.Text;
 
@@ -51,6 +52,9 @@ namespace PostCare
             builder.Services.AddAuthorization();
 
             // Add services to the container.
+            // user Repository and Service
+            builder.Services.AddScoped<IUserRepository, UserRepository>();
+            builder.Services.AddScoped<IUserService, UserService>();
             // Register Services
             builder.Services.AddScoped<IJwtService, JwtService>();
             builder.Services.AddScoped<IAuthService, AuthService>();

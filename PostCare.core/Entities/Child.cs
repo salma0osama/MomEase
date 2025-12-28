@@ -32,7 +32,7 @@ namespace PostCare.core.Entities
 
         [Required]
 
-        public FeedingType? FeedingType { get; set; }
+        public FeedingType? FeedingTypeForBaby { get; set; }
 
         [MaxLength(500)]
         public string PhotoUrl { get; set; }
