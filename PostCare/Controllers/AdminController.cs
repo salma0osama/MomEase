@@ -5,6 +5,8 @@ using PostCare.core.DTOS.AdminDTO;
 using PostCare.core.DTOS;
 using PostCare.core.Interfaces;
 using System.Security.Claims;
+using PostCare.infra.Services;
+using PostCare.core.Enums;
 namespace PostCare.api.Controllers
 {
     [Route("api/[controller]")]
@@ -13,10 +15,12 @@ namespace PostCare.api.Controllers
     public class AdminController : ControllerBase
     {
         private readonly IUserService _userService;
+        private readonly IMotherProfileService _motherProfileService;
 
-        public AdminController(IUserService userService)
+        public AdminController(IUserService userService, IMotherProfileService motherProfileService)
         {
             _userService = userService;
+            _motherProfileService = motherProfileService;
         }
 
         //Admin-only endpoints
@@ -159,10 +163,11 @@ namespace PostCare.api.Controllers
             }
         }
 
-        // ============================================
-        // 6. PUT /api/admin/users/{id}/status
-        // تفعيل/تعطيل المستخدم
-        // ============================================
+
+        //// ============================================
+        //// 6. PUT /api/admin/users/{id}/status
+        //// تفعيل/تعطيل المستخدم
+        //// ============================================
         [HttpPut("users/{id}/status")]
         public async Task<IActionResult> ChangeUserStatus(int id, [FromBody] ChangeStatusDto changeStatusDto)
         {
@@ -184,6 +189,7 @@ namespace PostCare.api.Controllers
                 });
             }
         }
+
 
         // ============================================
         // 7. GET /api/admin/content-moderation
