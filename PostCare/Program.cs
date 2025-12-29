@@ -1,4 +1,3 @@
-
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -6,11 +5,7 @@ using Microsoft.OpenApi.Models;
 using PostCare.core.Entities;
 using PostCare.core.Interfaces;
 using PostCare.infra.Data;
-<<<<<<< Updated upstream
 using PostCare.infra.Repositories;
-=======
-using PostCare.infra.Repository;
->>>>>>> Stashed changes
 using PostCare.infra.Services;
 using System.Text;
 
@@ -66,13 +61,12 @@ namespace PostCare
             builder.Services.AddScoped<IJwtService, JwtService>();
             builder.Services.AddScoped<IAuthService, AuthService>();
 
-<<<<<<< Updated upstream
+
             builder.Services.AddScoped<IEmailService, EmailService>();
-=======
+
             builder.Services.AddScoped<IChildRepository, ChildRepository>();
             builder.Services.AddScoped<IChildService, ChildService>();
             builder.Services.AddScoped<IFileStorageService, FileStorageService>();
->>>>>>> Stashed changes
 
             builder.Services.AddControllers();
             // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
@@ -108,7 +102,6 @@ namespace PostCare
              }
              });
             });
-
             var app = builder.Build();
 
             // Configure the HTTP request pipeline.
