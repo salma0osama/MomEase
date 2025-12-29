@@ -51,18 +51,23 @@ namespace PostCare
 
             builder.Services.AddAuthorization();
 
-            // Register Repository
-            builder.Services.AddScoped<IAuthRepository, AuthRepository>();
+           
 
             // Add services to the container.
-            // user Repository and Service
-            builder.Services.AddScoped<IUserRepository, UserRepository>();
-            builder.Services.AddScoped<IUserService, UserService>();
-            // Register Services
+            
+            //Authentication Repository & Service
             builder.Services.AddScoped<IJwtService, JwtService>();
             builder.Services.AddScoped<IAuthService, AuthService>();
-
             builder.Services.AddScoped<IEmailService, EmailService>();
+            builder.Services.AddScoped<IAuthRepository, AuthRepository>();
+
+            // user Repository & Service
+            builder.Services.AddScoped<IUserRepository, UserRepository>();
+            builder.Services.AddScoped<IUserService, UserService>();
+
+            // Mother Profile Repository & Service
+            builder.Services.AddScoped<IMotherProfileRepository, MotherProfileRepository>();
+            builder.Services.AddScoped<IMotherProfileService, MotherProfileService>();
 
             builder.Services.AddControllers();
             // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
