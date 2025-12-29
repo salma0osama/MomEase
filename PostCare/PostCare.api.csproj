@@ -26,4 +26,8 @@
     <ProjectReference Include="..\PostCare.infra\PostCare.infra.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="wwwroot\uploads\children\" />
+  </ItemGroup>
+
 </Project>
