@@ -32,7 +32,11 @@ namespace PostCare.core.Entities
 
         [Required]
 
+<<<<<<< Updated upstream
         public FeedingType? FeedingTypeForBaby { get; set; }
+=======
+        public FeedingTypeForBaby? FeedingTypeForBaby { get; set; }
+>>>>>>> Stashed changes
 
         [MaxLength(500)]
         public string PhotoUrl { get; set; }

@@ -6,7 +6,11 @@ using Microsoft.OpenApi.Models;
 using PostCare.core.Entities;
 using PostCare.core.Interfaces;
 using PostCare.infra.Data;
+<<<<<<< Updated upstream
 using PostCare.infra.Repositories;
+=======
+using PostCare.infra.Repository;
+>>>>>>> Stashed changes
 using PostCare.infra.Services;
 using System.Text;
 
@@ -62,12 +66,18 @@ namespace PostCare
             builder.Services.AddScoped<IJwtService, JwtService>();
             builder.Services.AddScoped<IAuthService, AuthService>();
 
+<<<<<<< Updated upstream
             builder.Services.AddScoped<IEmailService, EmailService>();
+=======
+            builder.Services.AddScoped<IChildRepository, ChildRepository>();
+            builder.Services.AddScoped<IChildService, ChildService>();
+            builder.Services.AddScoped<IFileStorageService, FileStorageService>();
+>>>>>>> Stashed changes
 
             builder.Services.AddControllers();
             // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
-            builder.Services.AddEndpointsApiExplorer();
-            builder.Services.AddSwaggerGen();
+            //builder.Services.AddEndpointsApiExplorer();
+            //builder.Services.AddSwaggerGen();
 
             // Add Swagger with JWT Support
             builder.Services.AddEndpointsApiExplorer();
@@ -84,20 +94,19 @@ namespace PostCare
                     Scheme = "Bearer"
                 });
 
-                c.AddSecurityRequirement(new OpenApiSecurityRequirement
-    {
-        {
+                c.AddSecurityRequirement(new OpenApiSecurityRequirement {
+                    {
             new OpenApiSecurityScheme
-            {
+              {
                 Reference = new OpenApiReference
                 {
                     Type = ReferenceType.SecurityScheme,
                     Id = "Bearer"
                 }
-            },
+             },
             new string[] {}
-        }
-    });
+             }
+             });
             });
 
             var app = builder.Build();
@@ -110,6 +119,9 @@ namespace PostCare
             }
 
             app.UseHttpsRedirection();
+            app.UseStaticFiles();
+
+            app.UseRouting();
 
             app.UseAuthentication();
             app.UseAuthorization();

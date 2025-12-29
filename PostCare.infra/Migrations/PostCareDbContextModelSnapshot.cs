@@ -250,7 +250,7 @@ namespace PostCare.infra.Migrations
                     b.Property<int>("DeliveryType")
                         .HasColumnType("int");
 
-                    b.Property<int>("FeedingType")
+                    b.Property<int>("FeedingTypeForBaby")
                         .HasColumnType("int");
 
                     b.Property<string>("FullName")
