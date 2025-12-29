@@ -11,6 +11,7 @@ using Microsoft.EntityFrameworkCore;
 using BCrypt.Net;
 using PostCare.infra.Data;
 using PostCare.infra.Data;
+using PostCare.core.DTOS.MotherProfileDto;
 
 
 namespace PostCare.infra.Services
@@ -20,15 +21,18 @@ namespace PostCare.infra.Services
         private readonly IAuthRepository _authRepository;
         private readonly IJwtService _jwtService;
         private readonly IEmailService _emailService;
+        private readonly IMotherProfileService _motherProfileService;
 
         public AuthService(
             IAuthRepository authRepository,
             IJwtService jwtService,
-            IEmailService emailService)
+            IEmailService emailService,IMotherProfileService motherProfileService)
+            
         {
             _authRepository = authRepository;
             _jwtService = jwtService;
             _emailService = emailService;
+            _motherProfileService=motherProfileService;
         }
 
         public async Task<AuthResponseDto> RegisterAsync(RegisterDto registerDto, string ipAddress)
@@ -60,6 +64,14 @@ namespace PostCare.infra.Services
             await _authRepository.AddUserAsync(user);
             await _authRepository.SaveChangesAsync();
 
+            // Create Mother Profile automatically
+            await _motherProfileService.CreateMotherProfileAsync(new CreateMotherProfileDto
+            {
+                UserId = user.UserId,
+                IsFirstTimeMother = true,
+                NumberOfChildren = 0
+            });
+
             // Send OTP Email
             await _emailService.SendOtpEmailAsync(
                 user.Email,
@@ -67,6 +79,7 @@ namespace PostCare.infra.Services
                 $"{user.FirstName} {user.LastName}"
             );
 
+           
             return new AuthResponseDto
             {
                 UserId = user.UserId,
@@ -261,13 +274,13 @@ namespace PostCare.infra.Services
             if (user == null)
                 throw new Exception("User not found");
 
-            // Generate OTP instead of token
+            
             var otpCode = GenerateOtpCode();
 
             var passwordResetToken = new PasswordResetToken
             {
                 UserId = user.UserId,
-                Token = otpCode, // استخدم OTP بدل الـ GUID
+                Token = otpCode, 
                 ExpiresAt = DateTime.Now.AddMinutes(10), // 10 دقايق
                 CreatedAt = DateTime.Now
             };
