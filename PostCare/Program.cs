@@ -59,6 +59,7 @@ namespace PostCare
             builder.Services.AddScoped<IAuthService, AuthService>();
             builder.Services.AddScoped<IEmailService, EmailService>();
             builder.Services.AddScoped<IAuthRepository, AuthRepository>();
+            builder.Services.AddScoped<IGoogleAuthService, GoogleAuthService>();
 
             // user Repository & Service
             builder.Services.AddScoped<IUserRepository, UserRepository>();

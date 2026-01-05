@@ -40,6 +40,9 @@ namespace PostCare.core.Entities
         public string? EmailVerificationToken { get; set; }
         public DateTime? EmailVerificationTokenExpiry { get; set; }
 
+        public string? GoogleId { get; set; }
+        public bool IsExternalAuth { get; set; } = false;
+
         // Navigation Properties
         public virtual MotherProfile MotherProfile { get; set; }
         public virtual ICollection<Child> Children { get; set; }
