@@ -22,17 +22,20 @@ namespace PostCare.infra.Services
         private readonly IJwtService _jwtService;
         private readonly IEmailService _emailService;
         private readonly IMotherProfileService _motherProfileService;
+        private readonly IGoogleAuthService _googleAuthService;
 
         public AuthService(
             IAuthRepository authRepository,
             IJwtService jwtService,
-            IEmailService emailService,IMotherProfileService motherProfileService)
+            IEmailService emailService,IMotherProfileService motherProfileService,
+            IGoogleAuthService googleAuthService)
             
         {
             _authRepository = authRepository;
             _jwtService = jwtService;
             _emailService = emailService;
             _motherProfileService=motherProfileService;
+            _googleAuthService = googleAuthService;
         }
 
         public async Task<AuthResponseDto> RegisterAsync(RegisterDto registerDto, string ipAddress)
@@ -353,11 +356,124 @@ namespace PostCare.infra.Services
         //    await _authRepository.SaveChangesAsync();
         //}
 
+        public async Task<AuthResponseDto> GoogleLoginAsync(GoogleLoginDto googleLoginDto, string ipAddress)
+        {
+            try
+            {
+                // ✅ Check if DTO is null
+                if (googleLoginDto == null)
+                {
+                    throw new Exception("Login data is required");
+                }
+
+                // ✅ Check if IdToken is provided
+                if (string.IsNullOrWhiteSpace(googleLoginDto.IdToken))
+                {
+                    throw new Exception("ID Token is required");
+                }
+
+                Console.WriteLine("🔐 Starting Google login process...");
+
+                // ✅ Verify Google Token
+                var payload = await _googleAuthService.VerifyGoogleTokenAsync(googleLoginDto.IdToken);
+
+                // ✅ Double check payload
+                if (payload == null)
+                {
+                    throw new Exception("Failed to verify Google token");
+                }
+
+                Console.WriteLine($"📧 User email from token: {payload.Email}");
+
+                // ✅ Check if email exists in payload
+                if (string.IsNullOrWhiteSpace(payload.Email))
+                {
+                    throw new Exception("Email not found in Google token");
+                }
+
+                // Find or create user
+                var user = await _authRepository.GetUserByEmailAsync(payload.Email);
+
+                if (user == null)
+                {
+                    Console.WriteLine("👤 Creating new user...");
+
+                    // Create new user
+                    user = new Users
+                    {
+                        FirstName = payload.GivenName ?? "User",
+                        LastName = payload.FamilyName ?? "",
+                        Email = payload.Email,
+                        Password = BCrypt.Net.BCrypt.HashPassword(Guid.NewGuid().ToString()),
+                        GoogleId = payload.Subject,
+                        //ProfilePictureUrl = payload.Picture,
+                        IsExternalAuth = true,
+                        IsEmailVerified = true,
+                        Role = Role.MOTHER,
+                        CreatedAt = DateTime.Now
+                    };
+
+                    await _authRepository.AddUserAsync(user);
+                    await _authRepository.SaveChangesAsync();
+
+                    Console.WriteLine($"✅ New user created with ID: {user.UserId}");
+                }
+                else
+                {
+                    Console.WriteLine($"👤 Existing user found: {user.UserId}");
+
+                    // Update existing user with Google info if not already linked
+                    if (string.IsNullOrEmpty(user.GoogleId))
+                    {
+                        user.GoogleId = payload.Subject;
+                        //user.ProfilePictureUrl = payload.Picture;
+                        user.IsExternalAuth = true;
+                        user.IsEmailVerified = true;
+
+                        await _authRepository.UpdateUserAsync(user);
+                        await _authRepository.SaveChangesAsync();
+
+                        Console.WriteLine("✅ User linked with Google account");
+                    }
+                }
+
+                // Generate tokens
+                Console.WriteLine("🔑 Generating JWT tokens...");
+
+                var accessToken = _jwtService.GenerateAccessToken(user);
+                var refreshToken = _jwtService.GenerateRefreshToken();
+
+                await _jwtService.CreateRefreshTokenAsync(user.UserId, refreshToken, ipAddress);
+
+                Console.WriteLine("✅ Google login successful!");
+
+                return new AuthResponseDto
+                {
+                    UserId = user.UserId,
+                    FirstName = user.FirstName,
+                    LastName = user.LastName,
+                    Email = user.Email,
+                    Role = user.Role.ToString(),
+                    AccessToken = accessToken,
+                    RefreshToken = refreshToken,
+                    AccessTokenExpiration = DateTime.Now.AddMinutes(120),
+                    RefreshTokenExpiration = DateTime.Now.AddDays(14)
+                };
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"❌ Google login failed: {ex.Message}");
+                Console.WriteLine($"Stack trace: {ex.StackTrace}");
+                throw;
+            }
+        }
+
         // Helper Method
         private string GenerateOtpCode()
         {
             var random = new Random();
             return random.Next(1000, 9999).ToString();
         }
+
     }
 }

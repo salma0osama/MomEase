@@ -284,5 +284,29 @@ namespace PostCare.api.Controllers
                 });
             }
         }
+        [HttpPost("google-login")]
+        public async Task<IActionResult> GoogleLogin([FromBody] GoogleLoginDto googleLoginDto)
+        {
+            try
+            {
+                var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString();
+                var result = await _authService.GoogleLoginAsync(googleLoginDto, ipAddress);
+
+                return Ok(new
+                {
+                    success = true,
+                    message = "Google login successful",
+                    data = result
+                });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new
+                {
+                    success = false,
+                    message = ex.Message
+                });
+            }
+        }
     }
 }
