@@ -32,10 +32,10 @@ namespace PostCare.core.Entities
 
         [Required]
 
-        public FeedingType? FeedingTypeForBaby { get; set; }
+        public FeedingTypeForBaby FeedingTypeForBaby { get; set; }
 
         [MaxLength(500)]
-        public string PhotoUrl { get; set; }
+        public string? PhotoUrl { get; set; }
 
         // Navigation Properties
         [ForeignKey("UserId")]

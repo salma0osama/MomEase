@@ -1,4 +1,3 @@
-
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -70,10 +69,14 @@ namespace PostCare
             builder.Services.AddScoped<IMotherProfileRepository, MotherProfileRepository>();
             builder.Services.AddScoped<IMotherProfileService, MotherProfileService>();
 
+            builder.Services.AddScoped<IChildRepository, ChildRepository>();
+            builder.Services.AddScoped<IChildService, ChildService>();
+            builder.Services.AddScoped<IFileStorageService, FileStorageService>();
+
             builder.Services.AddControllers();
             // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
-            builder.Services.AddEndpointsApiExplorer();
-            builder.Services.AddSwaggerGen();
+            //builder.Services.AddEndpointsApiExplorer();
+            //builder.Services.AddSwaggerGen();
 
             // Add Swagger with JWT Support
             builder.Services.AddEndpointsApiExplorer();
@@ -90,22 +93,20 @@ namespace PostCare
                     Scheme = "Bearer"
                 });
 
-                c.AddSecurityRequirement(new OpenApiSecurityRequirement
-    {
-        {
+                c.AddSecurityRequirement(new OpenApiSecurityRequirement {
+                    {
             new OpenApiSecurityScheme
-            {
+              {
                 Reference = new OpenApiReference
                 {
                     Type = ReferenceType.SecurityScheme,
                     Id = "Bearer"
                 }
-            },
+             },
             new string[] {}
-        }
-    });
+             }
+             });
             });
-
             var app = builder.Build();
 
             // Configure the HTTP request pipeline.
@@ -116,6 +117,9 @@ namespace PostCare
             }
 
             app.UseHttpsRedirection();
+            app.UseStaticFiles();
+
+            app.UseRouting();
 
             app.UseAuthentication();
             app.UseAuthorization();

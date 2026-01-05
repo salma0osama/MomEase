@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using PostCare.infra.Data;
 
@@ -11,9 +12,11 @@ using PostCare.infra.Data;
 namespace PostCare.infra.Migrations
 {
     [DbContext(typeof(PostCareDbContext))]
-    partial class PostCareDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251229143651_FixPhotoUrlForChildrenRequired")]
+    partial class FixPhotoUrlForChildrenRequired
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1085,13 +1088,7 @@ namespace PostCare.infra.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
-                    b.Property<string>("GoogleId")
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<bool>("IsEmailVerified")
-                        .HasColumnType("bit");
-
-                    b.Property<bool>("IsExternalAuth")
                         .HasColumnType("bit");
 
                     b.Property<string>("LastName")
