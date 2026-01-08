@@ -73,6 +73,10 @@ namespace PostCare
             builder.Services.AddScoped<IChildService, ChildService>();
             builder.Services.AddScoped<IFileStorageService, FileStorageService>();
 
+            // Growth Record Repository & Service
+            builder.Services.AddScoped<IGrowthRecordRepository, GrowthRecordRepository>();
+            builder.Services.AddScoped<IGrowthRecordService, GrowthRecordService>();
+
             builder.Services.AddControllers();
             // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
             //builder.Services.AddEndpointsApiExplorer();
