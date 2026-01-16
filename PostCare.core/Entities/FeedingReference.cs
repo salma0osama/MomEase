@@ -14,7 +14,7 @@ namespace PostCare.core.Entities
         public int FeedingRefId { get; set; }
 
         [Required]
-        public FeedingType FeedingType { get; set; }
+        public FeedingTypeForBaby FeedingTypeForBaby { get; set; }
 
         public int? AgeMinMonths { get; set; }
 

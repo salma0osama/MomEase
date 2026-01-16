@@ -26,6 +26,9 @@ namespace PostCare.core.Entities
         [Required]
         public FeedingType FeedingType { get; set; }
 
+        [Required]
+        public FeedingTypeForBaby FeedingTypeForBaby { get; set; }
+
         public int? FeedingRefId { get; set; }
 
         [MaxLength(500)]

@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Authentication.JwtBearer;
+﻿using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
@@ -8,6 +8,7 @@ using PostCare.infra.Data;
 using PostCare.infra.Repositories;
 using PostCare.infra.Services;
 using System.Text;
+using System.Text.Json.Serialization;
 
 namespace PostCare
 {
@@ -73,7 +74,19 @@ namespace PostCare
             builder.Services.AddScoped<IChildService, ChildService>();
             builder.Services.AddScoped<IFileStorageService, FileStorageService>();
 
-            builder.Services.AddControllers();
+            // Feeding Record Repository & Service
+            builder.Services.AddScoped<IFeedingReferenceRepository, FeedingReferenceRepository>();
+            builder.Services.AddScoped<IFeedingRecordRepository, FeedingRecordRepository>();
+
+            // Feeding Tracking Services
+            builder.Services.AddScoped<IFeedingRecordService, FeedingRecordService>();
+
+
+            builder.Services.AddControllers().AddJsonOptions(options =>
+            {
+                // ✅ تحويل كل الـ Enums لـ strings
+                options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+            });
             // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
             //builder.Services.AddEndpointsApiExplorer();
             //builder.Services.AddSwaggerGen();
