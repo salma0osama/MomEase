@@ -51,10 +51,10 @@ namespace PostCare
 
             builder.Services.AddAuthorization();
 
-           
+
 
             // Add services to the container.
-            
+
             //Authentication Repository & Service
             builder.Services.AddScoped<IJwtService, JwtService>();
             builder.Services.AddScoped<IAuthService, AuthService>();
@@ -70,6 +70,7 @@ namespace PostCare
             builder.Services.AddScoped<IMotherProfileRepository, MotherProfileRepository>();
             builder.Services.AddScoped<IMotherProfileService, MotherProfileService>();
 
+            // Child Repository & Service
             builder.Services.AddScoped<IChildRepository, ChildRepository>();
             builder.Services.AddScoped<IChildService, ChildService>();
             builder.Services.AddScoped<IFileStorageService, FileStorageService>();
@@ -87,6 +88,11 @@ namespace PostCare
                 // ✅ تحويل كل الـ Enums لـ strings
                 options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
             });
+            //sleep record Repository & Service
+            builder.Services.AddScoped<ISleepRecordRepository, SleepRecordRepository>();
+            builder.Services.AddScoped<ISleepRecordService, SleepRecordService>();
+
+            builder.Services.AddControllers();
             // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
             //builder.Services.AddEndpointsApiExplorer();
             //builder.Services.AddSwaggerGen();
