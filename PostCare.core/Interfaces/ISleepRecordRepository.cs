@@ -1,9 +1,4 @@
 ﻿using PostCare.core.Entities;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace PostCare.core.Interfaces
 {
@@ -16,5 +11,11 @@ namespace PostCare.core.Interfaces
         Task<bool> DeleteSleepRecordAsync(ChildSleepRecord record);
         Task<List<ChildSleepRecord>> GetSleepRecordsByDateRangeAsync(int childId, DateTime startDate, DateTime endDate);
         Task<bool> IsSleepRecordOwnedByUserAsync(int recordId, int userId);
+
+        // ✅ إضافة: منع السجلات المكررة
+        Task<bool> ExistsForDateAsync(int childId, DateTime date, int? excludeRecordId = null);
+
+        // ✅ إضافة: Get Last N Days
+        Task<List<ChildSleepRecord>> GetLastNDaysAsync(int childId, int days);
     }
 }

@@ -2,11 +2,6 @@
 using PostCare.core.Entities;
 using PostCare.core.Interfaces;
 using PostCare.infra.Data;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace PostCare.infra.Repositories
 {
@@ -72,6 +67,33 @@ namespace PostCare.infra.Repositories
         {
             return await _context.ChildSleepRecords
                 .AnyAsync(s => s.RecordId == recordId && s.Child.UserId == userId);
+        }
+
+        // ✅ إضافة: منع السجلات المكررة في نفس اليوم
+        public async Task<bool> ExistsForDateAsync(int childId, DateTime date, int? excludeRecordId = null)
+        {
+            var dateOnly = date.Date;
+            var query = _context.ChildSleepRecords
+                .Where(s => s.ChildId == childId && s.SleepDate.Date == dateOnly);
+
+            if (excludeRecordId.HasValue)
+            {
+                query = query.Where(s => s.RecordId != excludeRecordId.Value);
+            }
+
+            return await query.AnyAsync();
+        }
+
+        // ✅ إضافة: Get Last N Days (كان مفقود)
+        public async Task<List<ChildSleepRecord>> GetLastNDaysAsync(int childId, int days)
+        {
+            var startDate = DateTime.Now.Date.AddDays(-days);
+            return await _context.ChildSleepRecords
+                .Include(s => s.Child)
+                .Include(s => s.SleepReference)
+                .Where(s => s.ChildId == childId && s.SleepDate >= startDate)
+                .OrderByDescending(s => s.SleepDate)
+                .ToListAsync();
         }
     }
 }

@@ -82,15 +82,19 @@ namespace PostCare
             // Feeding Tracking Services
             builder.Services.AddScoped<IFeedingRecordService, FeedingRecordService>();
 
+            //sleep record Repository & Service
+            builder.Services.AddScoped<ISleepRecordRepository, SleepRecordRepository>();
+            builder.Services.AddScoped<ISleepRecordService, SleepRecordService>();
+
+            // Sleep Reference Repository
+            builder.Services.AddScoped<ISleepReferenceRepository, SleepReferenceRepository>();
 
             builder.Services.AddControllers().AddJsonOptions(options =>
             {
                 // ✅ تحويل كل الـ Enums لـ strings
                 options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
             });
-            //sleep record Repository & Service
-            builder.Services.AddScoped<ISleepRecordRepository, SleepRecordRepository>();
-            builder.Services.AddScoped<ISleepRecordService, SleepRecordService>();
+
 
             builder.Services.AddControllers();
             // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle

@@ -11,7 +11,7 @@ namespace PostCare.core.DTOS.SleepRecordDTO
     {
         public DateTime? SleepDate { get; set; }
 
-        public TimeSpan? SleepHoursTotal { get; set; }
+        public string? SleepHoursTotal { get; set; }
 
         public int? SleepRefId { get; set; }
 

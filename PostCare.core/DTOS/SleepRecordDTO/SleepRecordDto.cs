@@ -17,5 +17,6 @@ namespace PostCare.core.DTOS.SleepRecordDTO
         public int? SleepRefId { get; set; }
         public string? Notes { get; set; }
         public string Status { get; set; } // "Good", "Normal", "Poor"
+        public SleepingReferenceInfo? ReferenceInfo { get; set; }
     }
 }

@@ -17,5 +17,6 @@ namespace PostCare.core.Interfaces
         Task<SleepStatisticsDto> GetSleepStatisticsAsync(int childId, int userId);
         Task<WeeklySleepDto> GetWeeklySleepAsync(int childId, int userId);
         Task<MonthlySleepDto> GetMonthlySleepAsync(int childId, int userId);
+
     }
 }

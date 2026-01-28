@@ -15,9 +15,8 @@ namespace PostCare.core.DTOS.SleepRecordDTO
         [Required(ErrorMessage = "تاريخ النوم مطلوب")]
         public DateTime SleepDate { get; set; }
 
-        public TimeSpan? SleepHoursTotal { get; set; }
+        public string? SleepHoursTotal { get; set; }
 
-        public int? SleepRefId { get; set; }
 
         [MaxLength(500, ErrorMessage = "الملاحظات يجب أن تكون أقل من 500 حرف")]
         public string? Notes { get; set; }
