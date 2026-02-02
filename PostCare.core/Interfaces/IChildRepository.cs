@@ -33,5 +33,6 @@ namespace PostCare.core.Interfaces
         // Helper methods
         Task<bool> IsChildOwnedByUserAsync(int childId, int userId);
         Task<int> GetUserChildrenCountAsync(int userId);
+
     }
 }

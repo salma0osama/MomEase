@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Authentication.JwtBearer;
+﻿using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
@@ -8,6 +8,7 @@ using PostCare.infra.Data;
 using PostCare.infra.Repositories;
 using PostCare.infra.Services;
 using System.Text;
+using System.Text.Json.Serialization;
 
 namespace PostCare
 {
@@ -50,10 +51,10 @@ namespace PostCare
 
             builder.Services.AddAuthorization();
 
-           
+
 
             // Add services to the container.
-            
+
             //Authentication Repository & Service
             builder.Services.AddScoped<IJwtService, JwtService>();
             builder.Services.AddScoped<IAuthService, AuthService>();
@@ -69,6 +70,7 @@ namespace PostCare
             builder.Services.AddScoped<IMotherProfileRepository, MotherProfileRepository>();
             builder.Services.AddScoped<IMotherProfileService, MotherProfileService>();
 
+            // Child Repository & Service
             builder.Services.AddScoped<IChildRepository, ChildRepository>();
             builder.Services.AddScoped<IChildService, ChildService>();
             builder.Services.AddScoped<IFileStorageService, FileStorageService>();
@@ -76,6 +78,26 @@ namespace PostCare
             // Growth Record Repository & Service
             builder.Services.AddScoped<IGrowthRecordRepository, GrowthRecordRepository>();
             builder.Services.AddScoped<IGrowthRecordService, GrowthRecordService>();
+            // Feeding Record Repository & Service
+            builder.Services.AddScoped<IFeedingReferenceRepository, FeedingReferenceRepository>();
+            builder.Services.AddScoped<IFeedingRecordRepository, FeedingRecordRepository>();
+
+            // Feeding Tracking Services
+            builder.Services.AddScoped<IFeedingRecordService, FeedingRecordService>();
+
+            //sleep record Repository & Service
+            builder.Services.AddScoped<ISleepRecordRepository, SleepRecordRepository>();
+            builder.Services.AddScoped<ISleepRecordService, SleepRecordService>();
+
+            // Sleep Reference Repository
+            builder.Services.AddScoped<ISleepReferenceRepository, SleepReferenceRepository>();
+
+            builder.Services.AddControllers().AddJsonOptions(options =>
+            {
+                // ✅ تحويل كل الـ Enums لـ strings
+                options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+            });
+
 
             builder.Services.AddControllers();
             // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle

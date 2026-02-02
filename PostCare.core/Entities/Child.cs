@@ -32,8 +32,10 @@ namespace PostCare.core.Entities
 
         [Required]
 
+        /// <summary>
+        /// حالة التغذية الحالية للطفل (بناءً على متوسط آخر 7 أيام)
+        /// </summary>
         public FeedingTypeForBaby FeedingTypeForBaby { get; set; }
-
         [MaxLength(500)]
         public string? PhotoUrl { get; set; }
 
