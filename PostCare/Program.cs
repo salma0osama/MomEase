@@ -75,6 +75,9 @@ namespace PostCare
             builder.Services.AddScoped<IChildService, ChildService>();
             builder.Services.AddScoped<IFileStorageService, FileStorageService>();
 
+            // Growth Record Repository & Service
+            builder.Services.AddScoped<IGrowthRecordRepository, GrowthRecordRepository>();
+            builder.Services.AddScoped<IGrowthRecordService, GrowthRecordService>();
             // Feeding Record Repository & Service
             builder.Services.AddScoped<IFeedingReferenceRepository, FeedingReferenceRepository>();
             builder.Services.AddScoped<IFeedingRecordRepository, FeedingRecordRepository>();
