@@ -21,7 +21,7 @@ namespace MomEase
             builder.Services.AddDbContext<MomEaseDbContext>(options =>
                 options.UseSqlServer(
                     builder.Configuration.GetConnectionString("DefaultConnection"),
-                    b => b.MigrationsAssembly("PostCare.infra")
+                    b => b.MigrationsAssembly("MomEase.infra")
                 )
             );
             // Configure JWT Settings
@@ -113,7 +113,7 @@ namespace MomEase
             builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddSwaggerGen(c =>
             {
-                c.SwaggerDoc("v1", new OpenApiInfo { Title = "PostCare API", Version = "v1" });
+                c.SwaggerDoc("v1", new OpenApiInfo { Title = "MomEase API", Version = "v1" });
 
                 c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
                 {
