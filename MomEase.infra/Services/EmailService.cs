@@ -65,7 +65,7 @@ namespace MomEase.infra.Services
 
             </h1>
         </div>
-        <p>This code will expire in <strong>1 minutes</strong>.</p>
+        <p>This code will expire in <strong>5 minutes</strong>.</p>
         <p>If you didn't create an account, please ignore this email.</p>
         <hr style='margin-top: 30px;'>
         <p style='color: #666; font-size: 12px;'>PostCare - Your Motherhood Journey Companion</p>

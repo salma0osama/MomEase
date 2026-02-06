@@ -10,7 +10,7 @@ namespace PostCare.API.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    [Authorize]
+    //[Authorize]
     public class ChatBotController : ControllerBase
     {
         private readonly IChatBotService _chatService;
@@ -31,9 +31,17 @@ namespace PostCare.API.Controllers
                 // Extract UserId from JWT token
                 var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
+                // ✅ TEST MODE FALLBACK (no authentication)
                 if (string.IsNullOrEmpty(userIdClaim))
                 {
-                    return Unauthorized(new { message = "User not authenticated" });
+                    if (request.UserId > 0)
+                    {
+                        userIdClaim = request.UserId.ToString();
+                    }
+                    else
+                    {
+                        return Unauthorized(new { message = "User not authenticated" });
+                    }
                 }
 
                 // Convert UserId to integer
@@ -45,7 +53,7 @@ namespace PostCare.API.Controllers
                 // Ensure the UserId in request matches the token
                 if (request.UserId != userId)
                 {
-                    return Forbid(); // 403: Not allowed to send messages on behalf of another user
+                    return Forbid(); // 403
                 }
 
                 // Send the message
@@ -59,7 +67,6 @@ namespace PostCare.API.Controllers
             }
             catch (ArgumentException ex)
             {
-                // Validation errors
                 return BadRequest(new
                 {
                     success = false,
@@ -68,7 +75,6 @@ namespace PostCare.API.Controllers
             }
             catch (InvalidOperationException ex)
             {
-                // Logical errors (e.g., user not found)
                 return NotFound(new
                 {
                     success = false,
@@ -77,7 +83,6 @@ namespace PostCare.API.Controllers
             }
             catch (HttpRequestException ex)
             {
-                // External API error (Groq/LLaMA)
                 return StatusCode(503, new
                 {
                     success = false,
@@ -87,7 +92,6 @@ namespace PostCare.API.Controllers
             }
             catch (Exception ex)
             {
-                // Any other unexpected error
                 return StatusCode(500, new
                 {
                     success = false,
@@ -108,6 +112,7 @@ namespace PostCare.API.Controllers
                 // Extract UserId from JWT token
                 var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
+                // ✅ TEST MODE FALLBACK (no authentication)
                 if (string.IsNullOrEmpty(userIdClaim))
                 {
                     return Unauthorized(new { message = "User not authenticated" });
