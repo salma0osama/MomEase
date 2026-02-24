@@ -8,6 +8,6 @@ namespace MomEase.core.Interfaces
 {
     public interface ILlamaService
     {
-        Task<string> GenerateReplyAsync(string message);
+        Task<string> GenerateReplyAsync(List<(string role, string content)> messages);
     }
 }

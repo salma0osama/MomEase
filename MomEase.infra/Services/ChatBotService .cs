@@ -57,7 +57,42 @@ namespace MomEase.infra.Services
                 string reply;
                 try
                 {
-                    reply = await _llamaService.GenerateReplyAsync(request.Message);
+                    // Get last 6 messages for context
+                    var history = await _chatRepository.GetChatHistoryAsync(chat.ChatId);
+
+                    var lastMessages = history
+                        .OrderByDescending(m => m.CreatedAt)
+                        .Take(6)
+                        .Reverse()
+                        .Select(m => (
+                            role: m.Sender == "User" ? "user" : "assistant",
+                            content: m.Message
+                        ))
+                        .ToList();
+
+                    // Add current user message
+                    lastMessages.Add(("user", request.Message.Trim()));
+
+                    var arabicKeywords = new[] { "نزيف شديد", "إغماء", "مش قادرة أتنفس", "أفكار انتحار", "أذى لنفسي" };
+                    var englishKeywords = new[] { "suicide", "heavy bleeding", "can't breathe" };
+
+                    if (arabicKeywords.Any(k => request.Message.Contains(k, StringComparison.OrdinalIgnoreCase)))
+                    {
+                        reply = @"أنا قلق جداً بشأن ما تصفينه. 
+              إذا كنتِ تعانين من أعراض شديدة، يرجى طلب العناية الطبية الفورية أو الذهاب إلى أقرب غرفة طوارئ فوراً. 
+              إذا كان الأمر عاجلاً، اتصلي بخدمات الطوارئ الآن. سلامتك هي أهم شيء.";
+                    }
+                    else if (englishKeywords.Any(k => request.Message.Contains(k, StringComparison.OrdinalIgnoreCase)))
+                    {
+                        reply = @"I'm really concerned about what you're describing.
+              If you're experiencing severe symptoms, please seek immediate medical attention or go to the nearest emergency room immediately.
+              If this is urgent, call emergency services right now.
+              Your safety is the most important thing.";
+                    }
+                    else
+                    {
+                        reply = await _llamaService.GenerateReplyAsync(lastMessages);
+                    }
 
                     if (string.IsNullOrWhiteSpace(reply))
                         reply = "Sorry, an error occurred while processing your message. Please try again.";
