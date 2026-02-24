@@ -61,7 +61,7 @@ namespace MomEase.infra.Services
                 CreatedAt = DateTime.Now,
                 IsEmailVerified = false,
                 EmailVerificationToken = otpCode,
-                EmailVerificationTokenExpiry = DateTime.Now.AddMinutes(1)
+                EmailVerificationTokenExpiry = DateTime.Now.AddMinutes(5)
             };
 
             await _authRepository.AddUserAsync(user);
@@ -172,7 +172,7 @@ namespace MomEase.infra.Services
             // Generate new OTP
             var otpCode = GenerateOtpCode();
             user.EmailVerificationToken = otpCode;
-            user.EmailVerificationTokenExpiry = DateTime.Now.AddMinutes(1);
+            user.EmailVerificationTokenExpiry = DateTime.Now.AddMinutes(5);
 
             await _authRepository.UpdateUserAsync(user);
             await _authRepository.SaveChangesAsync();

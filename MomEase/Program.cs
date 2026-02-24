@@ -108,6 +108,13 @@ namespace MomEase
             builder.Services.AddScoped<ISearchHistoryRepository, SearchHistoryRepository>();
             builder.Services.AddScoped<ISavedArticleService, SavedArticleService>();
             builder.Services.AddScoped<ISavedArticleRepository, SavedArticleRepository>();
+            // Skin Analysis Services
+            builder.Services.AddScoped<ISkinAnalysisRepository, SkinAnalysisRepository>();
+            builder.Services.AddScoped<IDiseaseRepository, DiseaseRepository>();
+            builder.Services.AddScoped<ISkinAnalysisService, SkinAnalysisService>();
+
+            builder.Services.AddScoped<ISkinAnalysisAIService, SkinAnalysisAIService>();
+            builder.Services.AddHttpClient();
 
             builder.Services.AddControllers().AddJsonOptions(options =>
             {
@@ -150,19 +157,28 @@ namespace MomEase
              }
              });
             });
+            builder.Services.AddCors(options =>
+            {
+                options.AddPolicy("AllowAll",
+                    builder => builder.AllowAnyOrigin()
+                                      .AllowAnyMethod()
+                                      .AllowAnyHeader());
+            });
             var app = builder.Build();
 
             // Configure the HTTP request pipeline.
-            if (app.Environment.IsDevelopment())
-            {
+            //if (app.Environment.IsDevelopment())
+            //{
                 app.UseSwagger();
                 app.UseSwaggerUI();
-            }
+            //}
 
             app.UseHttpsRedirection();
             app.UseStaticFiles();
 
             app.UseRouting();
+
+            app.UseCors("AllowAll");
 
             app.UseAuthentication();
             app.UseAuthorization();
