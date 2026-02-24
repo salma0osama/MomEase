@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using MomEase.infra.Data;
 
@@ -11,9 +12,11 @@ using MomEase.infra.Data;
 namespace MomEase.infra.Migrations
 {
     [DbContext(typeof(MomEaseDbContext))]
-    partial class PostCareDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260205232312_articleCategotyImgURL")]
+    partial class articleCategotyImgURL
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -921,33 +924,6 @@ namespace MomEase.infra.Migrations
                     b.ToTable("RefreshTokens");
                 });
 
-            modelBuilder.Entity("MomEase.core.Entities.SavedArticles", b =>
-                {
-                    b.Property<int>("SavedArticleId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("SavedArticleId"));
-
-                    b.Property<int>("ArticleId")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime>("SavedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int>("UserId")
-                        .HasColumnType("int");
-
-                    b.HasKey("SavedArticleId");
-
-                    b.HasIndex("ArticleId");
-
-                    b.HasIndex("UserId", "ArticleId")
-                        .IsUnique();
-
-                    b.ToTable("SavedArticles");
-                });
-
             modelBuilder.Entity("MomEase.core.Entities.ScoreLevel", b =>
                 {
                     b.Property<int>("LevelId")
@@ -979,32 +955,6 @@ namespace MomEase.infra.Migrations
                     b.HasIndex("AssessmentId");
 
                     b.ToTable("ScoreLevels");
-                });
-
-            modelBuilder.Entity("MomEase.core.Entities.SearchHistory", b =>
-                {
-                    b.Property<int>("SearchId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("SearchId"));
-
-                    b.Property<string>("SearchTerm")
-                        .IsRequired()
-                        .HasMaxLength(255)
-                        .HasColumnType("nvarchar(255)");
-
-                    b.Property<DateTime>("SearchedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int>("UserId")
-                        .HasColumnType("int");
-
-                    b.HasKey("SearchId");
-
-                    b.HasIndex("UserId");
-
-                    b.ToTable("SearchHistories");
                 });
 
             modelBuilder.Entity("MomEase.core.Entities.SkinAnalyses", b =>
@@ -1548,25 +1498,6 @@ namespace MomEase.infra.Migrations
                     b.Navigation("User");
                 });
 
-            modelBuilder.Entity("MomEase.core.Entities.SavedArticles", b =>
-                {
-                    b.HasOne("MomEase.core.Entities.Articles", "Article")
-                        .WithMany("SavedByUsers")
-                        .HasForeignKey("ArticleId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("MomEase.core.Entities.Users", "User")
-                        .WithMany("SavedArticles")
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Article");
-
-                    b.Navigation("User");
-                });
-
             modelBuilder.Entity("MomEase.core.Entities.ScoreLevel", b =>
                 {
                     b.HasOne("MomEase.core.Entities.Assessment", "Assessment")
@@ -1576,17 +1507,6 @@ namespace MomEase.infra.Migrations
                         .IsRequired();
 
                     b.Navigation("Assessment");
-                });
-
-            modelBuilder.Entity("MomEase.core.Entities.SearchHistory", b =>
-                {
-                    b.HasOne("MomEase.core.Entities.Users", "User")
-                        .WithMany("SearchHistories")
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("MomEase.core.Entities.SkinAnalyses", b =>
@@ -1653,11 +1573,6 @@ namespace MomEase.infra.Migrations
             modelBuilder.Entity("MomEase.core.Entities.ArticleCategories", b =>
                 {
                     b.Navigation("Articles");
-                });
-
-            modelBuilder.Entity("MomEase.core.Entities.Articles", b =>
-                {
-                    b.Navigation("SavedByUsers");
                 });
 
             modelBuilder.Entity("MomEase.core.Entities.Assessment", b =>
@@ -1768,10 +1683,6 @@ namespace MomEase.infra.Migrations
                     b.Navigation("RefreshTokens");
 
                     b.Navigation("ReviewedReports");
-
-                    b.Navigation("SavedArticles");
-
-                    b.Navigation("SearchHistories");
 
                     b.Navigation("SkinAnalyses");
 
