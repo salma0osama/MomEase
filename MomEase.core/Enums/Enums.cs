@@ -12,8 +12,7 @@
     public enum Role { MOTHER, ADMIN }
     public enum MetricType { Weight, Height }
     public enum GrowthStatus { SevereUnder, Under, Normal, Over, Obese }
-
-    public enum SkinAnalysisDiseaseName { }
+    public enum SkinAnalysisDiseaseName { InsectBites, Impetigo, HandFootAndMouth, Diaper, Chikenpox }
 
 
 }
