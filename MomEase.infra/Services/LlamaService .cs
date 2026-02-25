@@ -27,100 +27,86 @@ namespace MomEase.infra.Services
             _httpClient.Timeout = TimeSpan.FromSeconds(30);
         }
 
-        public async Task<string> GenerateReplyAsync(string message)
+        public async Task<string> GenerateReplyAsync(List<(string role, string content)> messages)
         {
-            // Validate input message
-            if (string.IsNullOrWhiteSpace(message))
-                throw new ArgumentException("Message cannot be empty or whitespace.", nameof(message));
+            if (messages == null || !messages.Any())
+                throw new ArgumentException("Messages cannot be empty.");
 
-            try
+            var systemPrompt = @"
+                    You are a specialized maternal health assistant for postpartum mothers.
+                    
+                    General Rules:
+                    - Respond in the same language as the user.
+                    - Be empathetic, calm, and supportive.
+                    - Keep answers natural and conversational.
+                    - Do NOT use numbered sections or visible headings in your response.
+                    
+                    If the user sends a greeting or small talk:
+                    → Respond naturally and briefly like a normal assistant.
+                    
+                    If the user asks a medical or postpartum-related question:
+                    → Internally structure your response with:
+                       • empathy
+                       • possible explanation
+                       • practical advice
+                       • when to seek medical help (if needed)
+                    → But DO NOT display section titles or numbering.
+                    
+                    Medical Safety:
+                    - Do NOT provide diagnosis.
+                    - Do NOT prescribe medication doses.
+                    - If severe symptoms are mentioned, clearly advise urgent medical care.
+                    ";
+
+            var allMessages = new List<object>
+    {
+        new { role = "system", content = systemPrompt }
+    };
+
+            allMessages.AddRange(messages.Select(m => new
             {
-                // Prepare request body for LLaMA API
-                var body = new
-                {
-                    model = "llama-3.3-70b-versatile",
-                    messages = new[]
-                    {
-                        new
-                        {
-                            role = "system",
-                            content = "You are a helpful assistant for postpartum mothers. Provide supportive, accurate, and informative responses in Arabic or English based on the user's language. Keep responses concise and empathetic."
-                        },
-                        new
-                        {
-                            role = "user",
-                            content = message
-                        }
-                    },
-                    temperature = 0.7,
-                    max_tokens = 1024,
-                    top_p = 1,
-                    stream = false
-                };
+                role = m.role,
+                content = m.content
+            }));
 
-                // Create HTTP request
-                var request = new HttpRequestMessage
-                {
-                    Method = HttpMethod.Post,
-                    RequestUri = new Uri(ApiUrl),
-                    Headers =
-                    {
-                        { "Authorization", $"Bearer {_apiKey}" }
-                    },
-                    Content = new StringContent(
-                        JsonSerializer.Serialize(body),
-                        Encoding.UTF8,
-                        "application/json")
-                };
-
-                // Send request to LLaMA API
-                var response = await _httpClient.SendAsync(request);
-
-                // Check if request was successful
-                if (!response.IsSuccessStatusCode)
-                {
-                    var errorContent = await response.Content.ReadAsStringAsync();
-
-                    throw new HttpRequestException(
-                        $"LLaMA API returned status code {response.StatusCode}. Details: {errorContent}");
-                }
-
-                // Parse response
-                var resultJson = await response.Content.ReadAsStringAsync();
-                var jsonDoc = JsonSerializer.Deserialize<JsonElement>(resultJson);
-
-                // Extract bot's reply from response
-                var content = jsonDoc
-                    .GetProperty("choices")[0]
-                    .GetProperty("message")
-                    .GetProperty("content")
-                    .GetString();
-
-                if (string.IsNullOrWhiteSpace(content))
-                    throw new InvalidOperationException("Received empty response from LLaMA API");
-
-                return content.Trim();
-            }
-            catch (HttpRequestException)
+            var body = new
             {
-                // Re-throw HTTP errors to be handled by the service layer
-                throw;
-            }
-            catch (TaskCanceledException)
+                model = "llama-3.3-70b-versatile",
+                messages = allMessages,
+                temperature = 0.5,
+                max_tokens = 600,
+                top_p = 0.9,
+                stream = false
+            };
+
+            var request = new HttpRequestMessage
             {
-                // Request timeout
-                throw new HttpRequestException("Request to LLaMA API timed out after 30 seconds");
-            }
-            catch (JsonException ex)
-            {
-                // JSON parsing error
-                throw new InvalidOperationException("Failed to parse response from LLaMA API", ex);
-            }
-            catch (Exception ex)
-            {
-                // Any other unexpected error
-                throw new InvalidOperationException($"Unexpected error while calling LLaMA API: {ex.Message}", ex);
-            }
+                Method = HttpMethod.Post,
+                RequestUri = new Uri(ApiUrl),
+                Headers =
+        {
+            { "Authorization", $"Bearer {_apiKey}" }
+        },
+                Content = new StringContent(
+                    JsonSerializer.Serialize(body),
+                    Encoding.UTF8,
+                    "application/json")
+            };
+
+            var response = await _httpClient.SendAsync(request);
+
+            if (!response.IsSuccessStatusCode)
+                throw new HttpRequestException(await response.Content.ReadAsStringAsync());
+
+            var resultJson = await response.Content.ReadAsStringAsync();
+            var jsonDoc = JsonSerializer.Deserialize<JsonElement>(resultJson);
+
+            return jsonDoc
+                .GetProperty("choices")[0]
+                .GetProperty("message")
+                .GetProperty("content")
+                .GetString()
+                ?.Trim();
         }
     }
 }

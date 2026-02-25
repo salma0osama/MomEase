@@ -15,7 +15,8 @@ namespace MomEase.core.Entities
         [Required]
         [MaxLength(255)]
         public string Name { get; set; }
-
+        [Required]
+        public string ImageUrl { get; set; }
         public string Description { get; set; }
 
         // Navigation Property

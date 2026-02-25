@@ -37,5 +37,7 @@ namespace MomEase.core.Entities
         // Navigation Property
         [ForeignKey("CategoryId")]
         public virtual ArticleCategories Category { get; set; }
+        public virtual ICollection<SavedArticles> SavedByUsers { get; set; }
+
     }
 }

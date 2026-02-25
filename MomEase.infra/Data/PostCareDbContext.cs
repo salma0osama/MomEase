@@ -57,7 +57,8 @@ namespace MomEase.infra.Data
 
         public DbSet<ArticleCategories> ArticleCategories { get; set; }
         public DbSet<Articles> Articles { get; set; }
-
+        public DbSet<SearchHistory> SearchHistories { get; set; }
+        public DbSet<SavedArticles> SavedArticles { get; set; }
         public DbSet<Notifications> Notifications { get; set; }
 
         public DbSet<ChatBot> ChatBots { get; set; }
@@ -282,7 +283,10 @@ namespace MomEase.infra.Data
                     .HasForeignKey(e => e.CategoryId)
                     .OnDelete(DeleteBehavior.Restrict);
             });
-
+            // منع حفظ نفس المقالة مرتين
+            modelBuilder.Entity<SavedArticles>()
+                .HasIndex(s => new { s.UserId, s.ArticleId })
+                .IsUnique();
             // ---------- Notifications ----------
             modelBuilder.Entity<Notifications>(entity =>
             {

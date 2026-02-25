@@ -97,6 +97,17 @@ namespace MomEase
             builder.Services.AddScoped<IChatBotService, ChatBotService>();
             builder.Services.AddHttpClient<ILlamaService, LlamaService>();
 
+            // Article Category Repository & Service
+            builder.Services.AddScoped<IArticleCategoryRepository, ArticleCategoryRepository>();
+            builder.Services.AddScoped<IArticleCategoryService, ArticleCategoryService>();
+            
+            // Article Repository & Service
+            builder.Services.AddScoped<IArticleRepository, ArticleRepository>();
+            builder.Services.AddScoped<IArticleService, ArticleService>();
+            builder.Services.AddScoped<ISearchHistoryService, SearchHistoryService>();
+            builder.Services.AddScoped<ISearchHistoryRepository, SearchHistoryRepository>();
+            builder.Services.AddScoped<ISavedArticleService, SavedArticleService>();
+            builder.Services.AddScoped<ISavedArticleRepository, SavedArticleRepository>();
             // Skin Analysis Services
             builder.Services.AddScoped<ISkinAnalysisRepository, SkinAnalysisRepository>();
             builder.Services.AddScoped<IDiseaseRepository, DiseaseRepository>();
@@ -146,19 +157,28 @@ namespace MomEase
              }
              });
             });
+            builder.Services.AddCors(options =>
+            {
+                options.AddPolicy("AllowAll",
+                    builder => builder.AllowAnyOrigin()
+                                      .AllowAnyMethod()
+                                      .AllowAnyHeader());
+            });
             var app = builder.Build();
 
             // Configure the HTTP request pipeline.
-            if (app.Environment.IsDevelopment())
-            {
+            //if (app.Environment.IsDevelopment())
+            //{
                 app.UseSwagger();
                 app.UseSwaggerUI();
-            }
+            //}
 
             app.UseHttpsRedirection();
             app.UseStaticFiles();
 
             app.UseRouting();
+
+            app.UseCors("AllowAll");
 
             app.UseAuthentication();
             app.UseAuthorization();
