@@ -5,21 +5,19 @@ using MomEase.core.Enums;
 using MomEase.core.Interfaces;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Net.Http;
 using System.Net.Http.Headers;
-using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 
 namespace MomEase.infra.Services
 {
-    /// <summary>
-    /// حل عملي: يجرب Gradio الحقيقي، ولو فشل يستخدم TensorFlow.js model مباشرة
-    /// </summary>
     public class SkinAnalysisAIService : ISkinAnalysisAIService
     {
         private readonly IHttpClientFactory _httpClientFactory;
-        private readonly string _fastApiUrl;
+        private readonly string _apiUrl;
         private readonly ILogger<SkinAnalysisAIService> _logger;
 
         public SkinAnalysisAIService(
@@ -28,20 +26,18 @@ namespace MomEase.infra.Services
             ILogger<SkinAnalysisAIService> logger)
         {
             _httpClientFactory = httpClientFactory;
-            _fastApiUrl = config["AI:FastAPIUrl"] ?? "http://localhost:7860";
+            _apiUrl = config["AI:ApiUrl"] ?? "https://sohailaaaz-skin-disease-api.hf.space";
             _logger = logger;
         }
 
-        public async Task<SkinAnalysisDiseaseName> AnalyzeImageAsync(IFormFile image)
+        public async Task<(SkinAnalysisDiseaseName disease, double confidence)> AnalyzeImageAsync(IFormFile image)
         {
             try
             {
-                _logger.LogInformation("🔍 Analyzing image: {FileName}", image.FileName);
+                _logger.LogInformation("🔍 Analyzing: {FileName}", image.FileName);
 
-                // Validate
                 ValidateImage(image);
 
-                // Call FastAPI
                 var client = _httpClientFactory.CreateClient();
                 client.Timeout = TimeSpan.FromMinutes(2);
 
@@ -52,29 +48,39 @@ namespace MomEase.infra.Services
                 streamContent.Headers.ContentType = new MediaTypeHeaderValue(image.ContentType ?? "image/jpeg");
                 content.Add(streamContent, "file", image.FileName);
 
-                var url = $"{_fastApiUrl}/predict";
+                var url = $"{_apiUrl}/predict";
                 _logger.LogInformation("📤 POST {Url}", url);
 
                 var response = await client.PostAsync(url, content);
 
+                _logger.LogInformation("📥 Status: {Status}", response.StatusCode);
+
                 if (!response.IsSuccessStatusCode)
                 {
                     var error = await response.Content.ReadAsStringAsync();
-                    throw new Exception($"FastAPI Error ({response.StatusCode}): {error}");
+                    _logger.LogError("❌ Error: {Error}", error);
+                    throw new Exception($"API Error: {response.StatusCode}");
                 }
 
-                var responseBody = await response.Content.ReadAsStringAsync();
-                _logger.LogInformation("✅ Response: {Response}", responseBody);
+                var json = await response.Content.ReadAsStringAsync();
+                _logger.LogInformation("✅ Response: {Json}", json);
 
-                // Parse response
-                using var doc = JsonDocument.Parse(responseBody);
+                using var doc = JsonDocument.Parse(json);
                 var root = doc.RootElement;
 
+                if (!root.GetProperty("success").GetBoolean())
+                {
+                    throw new Exception("Prediction failed");
+                }
+
+                // ✅ استخراج المرض والثقة
                 var disease = root.GetProperty("disease").GetString();
+                var confidence = root.GetProperty("confidence").GetDouble();
 
-                _logger.LogInformation("🎯 Predicted: {Disease}", disease);
+                _logger.LogInformation("🎯 Disease: {Disease}, Confidence: {Confidence}%", disease, confidence);
 
-                return ParseDiseaseNameToEnum(disease);
+                // ✅ رجوع tuple
+                return (ParseDiseaseNameToEnum(disease), confidence);
             }
             catch (Exception ex)
             {
@@ -89,11 +95,14 @@ namespace MomEase.infra.Services
                 throw new ArgumentException("الصورة فارغة");
 
             var ext = Path.GetExtension(image.FileName).ToLowerInvariant();
-            if (!new[] { ".jpg", ".jpeg", ".png", ".webp" }.Contains(ext))
+            if (!new[] { ".jpg", ".jpeg", ".png", ".webp", ".bmp" }.Contains(ext))
                 throw new ArgumentException($"نوع ملف غير مدعوم: {ext}");
 
             if (image.Length > 10 * 1024 * 1024)
                 throw new ArgumentException("حجم الملف كبير جداً (أكثر من 10MB)");
+
+            _logger.LogInformation("✅ Validation passed: {FileName} ({Size} KB)",
+                image.FileName, image.Length / 1024);
         }
 
         private SkinAnalysisDiseaseName ParseDiseaseNameToEnum(string diseaseName)
@@ -101,31 +110,39 @@ namespace MomEase.infra.Services
             if (string.IsNullOrWhiteSpace(diseaseName))
                 throw new ArgumentException("اسم المرض فارغ");
 
-            // Direct enum parsing
+            diseaseName = diseaseName
+                .Trim()
+                .Replace("-", "")
+                .Replace("_", "")
+                .Replace(" ", "");
+
+            _logger.LogInformation("🔄 Parsing: '{DiseaseName}'", diseaseName);
+
             if (Enum.TryParse<SkinAnalysisDiseaseName>(diseaseName, true, out var result))
             {
-                _logger.LogInformation("✅ Mapped to enum: {Enum}", result);
+                _logger.LogInformation("✅ Matched: {Enum}", result);
                 return result;
             }
 
-            // Fallback mapping
-            var mapping = new System.Collections.Generic.Dictionary<string, SkinAnalysisDiseaseName>(StringComparer.OrdinalIgnoreCase)
+            var mapping = new Dictionary<string, SkinAnalysisDiseaseName>(StringComparer.OrdinalIgnoreCase)
             {
-                { "HandFootAndMouth", SkinAnalysisDiseaseName.HandFootAndMouth },
                 { "Chickenpox", SkinAnalysisDiseaseName.Chikenpox },
+                { "Diaper", SkinAnalysisDiseaseName.Diaper },
+                { "HandFootAndMouth", SkinAnalysisDiseaseName.HandFootAndMouth },
+                { "Hand-Food-And-Mouth", SkinAnalysisDiseaseName.HandFootAndMouth },
+                { "HandFoodAndMouth", SkinAnalysisDiseaseName.HandFootAndMouth },
                 { "Impetigo", SkinAnalysisDiseaseName.Impetigo },
                 { "InsectBites", SkinAnalysisDiseaseName.InsectBites },
-                { "Insect_bites", SkinAnalysisDiseaseName.InsectBites },
-                { "Diaper", SkinAnalysisDiseaseName.Diaper },
+                { "Insect_bites", SkinAnalysisDiseaseName.InsectBites }
             };
 
             if (mapping.TryGetValue(diseaseName, out var mapped))
             {
-                _logger.LogInformation("✅ Mapped '{Original}' → {Enum}", diseaseName, mapped);
+                _logger.LogInformation("✅ Mapped: '{Original}' → {Enum}", diseaseName, mapped);
                 return mapped;
             }
 
-            _logger.LogWarning("⚠️ Unknown disease '{Disease}', defaulting to InsectBites", diseaseName);
+            _logger.LogWarning("⚠️ Unknown disease '{DiseaseName}', defaulting to InsectBites", diseaseName);
             return SkinAnalysisDiseaseName.InsectBites;
         }
     }

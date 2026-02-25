@@ -39,54 +39,44 @@ namespace MomEase.API.Controllers
         {
             try
             {
-                _logger.LogInformation("Testing Gradio API with image: {FileName}", image?.FileName);
+                _logger.LogInformation("Testing with image: {FileName}", image?.FileName);
 
                 if (image == null || image.Length == 0)
                 {
                     return BadRequest(new
                     {
                         success = false,
-                        error = "No image provided",
-                        message = "الرجاء رفع صورة للاختبار"
+                        error = "No image provided"
                     });
                 }
 
-                // استدعاء الـ AI Service
-                var result = await _aiService.AnalyzeImageAsync(image);
+                // ✅ استخدم tuple
+                var (disease, confidence) = await _aiService.AnalyzeImageAsync(image);
 
                 return Ok(new
                 {
                     success = true,
-                    prediction = result.ToString(),
+                    prediction = disease.ToString(),
+                    confidence = $"{confidence:F2}%",  // ✅ عرض الثقة
                     message = "تم التحليل بنجاح! ✅",
                     details = new
                     {
                         fileName = image.FileName,
                         fileSize = $"{image.Length / 1024.0:F2} KB",
                         contentType = image.ContentType,
-                        predictedDisease = result
+                        predictedDisease = disease,
+                        confidenceScore = confidence
                     }
-                });
-            }
-            catch (ArgumentException argEx)
-            {
-                _logger.LogWarning(argEx, "Validation error during test");
-                return BadRequest(new
-                {
-                    success = false,
-                    error = "Validation Error",
-                    message = argEx.Message
                 });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error during Gradio API test");
+                _logger.LogError(ex, "Error during test");
                 return StatusCode(500, new
                 {
                     success = false,
                     error = "Internal Server Error",
-                    message = ex.Message,
-                    stackTrace = ex.StackTrace // في الـ development فقط
+                    message = ex.Message
                 });
             }
         }
