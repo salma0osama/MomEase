@@ -108,6 +108,19 @@ namespace MomEase
             builder.Services.AddScoped<ISearchHistoryRepository, SearchHistoryRepository>();
             builder.Services.AddScoped<ISavedArticleService, SavedArticleService>();
             builder.Services.AddScoped<ISavedArticleRepository, SavedArticleRepository>();
+
+            // Assessment Repository & Service
+            builder.Services.AddScoped<IAssessmentRepository, AssessmentRepository>();
+            builder.Services.AddScoped<IAssessmentService, AssessmentService>();
+
+            // Question Repository & Service
+            builder.Services.AddScoped<IQuestionRepository, QuestionRepository>();
+            builder.Services.AddScoped<IQuestionService, QuestionService>();
+
+            // Answer Option Repository & Service
+            builder.Services.AddScoped<IAnswerOptionRepository, AnswerOptionRepository>();
+            builder.Services.AddScoped<IAnswerOptionService, AnswerOptionService>();
+
             // Skin Analysis Services
             builder.Services.AddScoped<ISkinAnalysisRepository, SkinAnalysisRepository>();
             builder.Services.AddScoped<IDiseaseRepository, DiseaseRepository>();
