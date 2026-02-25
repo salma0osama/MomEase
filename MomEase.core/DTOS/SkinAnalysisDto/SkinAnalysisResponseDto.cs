@@ -13,6 +13,7 @@ namespace MomEase.core.DTOS.SkinAnalysisDto
         public string Result { get; set; }
         public string DiseaseName { get; set; }
         public string Advice { get; set; }
+        public double? Confidence { get; set; }
         public DateTime CreatedAt { get; set; }
     }
 }

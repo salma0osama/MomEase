@@ -10,6 +10,6 @@ namespace MomEase.core.Interfaces
 {
     public interface ISkinAnalysisAIService
     {
-        Task<SkinAnalysisDiseaseName> AnalyzeImageAsync(IFormFile image);
+        Task<(SkinAnalysisDiseaseName disease, double confidence)> AnalyzeImageAsync(IFormFile image);
     }
 }

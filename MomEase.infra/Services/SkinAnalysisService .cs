@@ -27,23 +27,23 @@ namespace MomEase.infra.Services
         }
 
         public async Task<SkinAnalysisResponseDto> AnalyzeNewImageAsync(
-            SkinAnalysisRequestDto request,
-            IFormFile image)
+    SkinAnalysisRequestDto request,
+    IFormFile image)
         {
-            // Validate image
+            // Validate
             if (image == null || image.Length == 0)
                 throw new Exception("No image provided");
 
-            // Save image to disk
+            // Save image
             var imageUrl = await SaveImageAsync(image);
 
-            // Call AI Model to get disease name
-            var predictedDisease = await _aiService.AnalyzeImageAsync(image);
+            // ✅ Call AI with tuple
+            var (predictedDisease, confidence) = await _aiService.AnalyzeImageAsync(image);
 
-            // Get disease details from database
+            // Get disease from DB
             var disease = await _diseaseRepo.GetByNameAsync(predictedDisease);
 
-            // Save to database
+            // Save to DB
             var analysis = new SkinAnalyses
             {
                 UserId = request.UserId,
@@ -63,6 +63,7 @@ namespace MomEase.infra.Services
                 Result = saved.Result,
                 DiseaseName = disease?.Name.ToString(),
                 Advice = disease?.Advice,
+                Confidence = confidence,  // ✅ أضفنا الثقة
                 CreatedAt = saved.CreatedAt
             };
         }
