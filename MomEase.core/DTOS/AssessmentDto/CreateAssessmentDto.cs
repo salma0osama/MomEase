@@ -32,7 +32,7 @@ namespace MomEase.core.DTOS.AssessmentDto
             {
                 if (result <= 0)
                 {
-                    return new ValidationResult("القيمة يجب أن تكون أكبر من صفر.");
+                    return new ValidationResult("Value must be grater than zero");
                 }
             }
             return ValidationResult.Success;

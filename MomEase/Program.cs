@@ -100,7 +100,7 @@ namespace MomEase
             // Article Category Repository & Service
             builder.Services.AddScoped<IArticleCategoryRepository, ArticleCategoryRepository>();
             builder.Services.AddScoped<IArticleCategoryService, ArticleCategoryService>();
-            
+
             // Article Repository & Service
             builder.Services.AddScoped<IArticleRepository, ArticleRepository>();
             builder.Services.AddScoped<IArticleService, ArticleService>();
@@ -120,6 +120,18 @@ namespace MomEase
             // Answer Option Repository & Service
             builder.Services.AddScoped<IAnswerOptionRepository, AnswerOptionRepository>();
             builder.Services.AddScoped<IAnswerOptionService, AnswerOptionService>();
+
+            // Score Level Repository & Service
+            builder.Services.AddScoped<IScoreLevelRepository, ScoreLevelRepository>();
+            builder.Services.AddScoped<IScoreLevelService, ScoreLevelService>();
+
+            // Assessment Result Repository & Service
+            builder.Services.AddScoped<IAssessmentResultRepository, AssessmentResultRepository>();
+            builder.Services.AddScoped<IAssessmentResultService, AssessmentResultService>();
+
+            // User Response Repository & Service
+            builder.Services.AddScoped<IUserResponseRepository, UserResponseRepository>();
+            builder.Services.AddScoped<IUserResponseService, UserResponseService>();
 
             // Skin Analysis Services
             builder.Services.AddScoped<ISkinAnalysisRepository, SkinAnalysisRepository>();
@@ -182,8 +194,8 @@ namespace MomEase
             // Configure the HTTP request pipeline.
             //if (app.Environment.IsDevelopment())
             //{
-                app.UseSwagger();
-                app.UseSwaggerUI();
+            app.UseSwagger();
+            app.UseSwaggerUI();
             //}
 
             app.UseHttpsRedirection();
