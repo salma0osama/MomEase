@@ -16,15 +16,18 @@ namespace MomEase.infra.Services
     {
         private readonly IChildRepository _childRepository;
         private readonly IFileStorageService _fileStorageService;
+        private readonly IVaccinationService _vaccinationService;
         private readonly ILogger<ChildService> _logger;
 
         public ChildService(
             IChildRepository childRepository,
             IFileStorageService fileStorageService,
+            IVaccinationService vaccinationService,
             ILogger<ChildService> logger)
         {
             _childRepository = childRepository;
             _fileStorageService = fileStorageService;
+            _vaccinationService = vaccinationService;
             _logger = logger;
         }
 
@@ -66,10 +69,15 @@ namespace MomEase.infra.Services
 
             // Save to database
             var createdChild = await _childRepository.AddChildAsync(child);
+            
+            await _vaccinationService.AssignVaccinationsToChildAsync(
+            createdChild.ChildId, createdChild.BirthDate);
 
-            _logger.LogInformation("New child created {ChildId} for user {UserId}", createdChild.ChildId, userId);
+            _logger.LogInformation("New child created {ChildId} for user {UserId}",
+                createdChild.ChildId, userId);
 
             return MapToDto(createdChild);
+
         }
 
         // 2. GET /api/children - Get all children of current user

@@ -26,7 +26,7 @@ namespace MomEase.core.Entities
         public DateTime? TakenDate { get; set; }
 
         [Required]
-        public VaccineStatus Status { get; set; } = VaccineStatus.No;
+        public VaccineStatus Status { get; set; } = VaccineStatus.Pending;
 
         // Navigation Properties
         [ForeignKey("ChildId")]

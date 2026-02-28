@@ -2,7 +2,7 @@
 {
     public enum Gender { Boy, Girl }
     public enum DeliveryType { Normal, Cesarean }
-    public enum VaccineStatus { Yes, No }
+    //public enum VaccineStatus { Yes, No }
     public enum HealthStatus { Healthy, ChronicDisease, HighRisk }
     public enum MentalHealthStatus { Normal, MildStress, Depression, Anxiety, Other }
     public enum ReactionType { LIKE, LOVE, SUPPORT, HELPFUL }
@@ -13,6 +13,11 @@
     public enum MetricType { Weight, Height }
     public enum GrowthStatus { SevereUnder, Under, Normal, Over, Obese }
     public enum SkinAnalysisDiseaseName { InsectBites, Impetigo, HandFootAndMouth, Diaper, Chikenpox }
-
+    public enum VaccineStatus
+    {
+        Pending = 0,  // لسه ما جاش موعده
+        Done = 1,     // اتعمل
+        Missed = 2    // فات موعده ومعملوش
+    }
 
 }

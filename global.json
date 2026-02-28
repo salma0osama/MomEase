@@ -1,6 +1,12 @@
+//{
+//  "sdk": {
+//    "version": "8.0.418",
+//    "rollForward": "latestMinor"
+//  }
+//}
 {
   "sdk": {
-    "version": "8.0.418",
-    "rollForward": "disable"
+    "version": "9.0.102",
+    "rollForward": "latestMinor"
   }
 }
