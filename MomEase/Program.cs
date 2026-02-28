@@ -139,6 +139,9 @@ namespace MomEase
             builder.Services.AddScoped<ISkinAnalysisRepository, SkinAnalysisRepository>();
             builder.Services.AddScoped<IDiseaseRepository, DiseaseRepository>();
             builder.Services.AddScoped<ISkinAnalysisService, SkinAnalysisService>();
+            // Vaccination
+            builder.Services.AddScoped<IVaccinationRepository, VaccinationRepository>();
+            builder.Services.AddScoped<IVaccinationService, VaccinationService>();
 
             builder.Services.AddScoped<ISkinAnalysisAIService, SkinAnalysisAIService>();
             builder.Services.AddHttpClient();
