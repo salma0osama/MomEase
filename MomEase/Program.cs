@@ -6,7 +6,9 @@ using MomEase.core.Entities;
 using MomEase.core.Interfaces;
 using MomEase.infra.Data;
 using MomEase.infra.Repositories;
+using MomEase.infra.Seeders;
 using MomEase.infra.Services;
+using System;
 using System.Text;
 using System.Text.Json.Serialization;
 
@@ -190,7 +192,12 @@ namespace MomEase
                                       .AllowAnyHeader());
             });
             var app = builder.Build();
-
+            //Assessment Seeder
+            using (var scope = app.Services.CreateScope())
+            {
+                var context = scope.ServiceProvider.GetRequiredService<MomEaseDbContext>();
+                AssessmentSeeder.SeedAsync(context).GetAwaiter().GetResult();
+            }
             // Configure the HTTP request pipeline.
             //if (app.Environment.IsDevelopment())
             //{
