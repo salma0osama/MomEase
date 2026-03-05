@@ -12,32 +12,21 @@ namespace MomEase.core.Entities
     {
         [Key]
         public int ReportId { get; set; }
-
-        [Required]
         public int PostId { get; set; }
-
-        [Required]
         public int ReporterId { get; set; }
-
-        [Required]
         [MaxLength(500)]
-        public string Reason { get; set; }
-
+        public string Reason { get; set; } = string.Empty;
         public int? ReviewedById { get; set; }
-
-        [Required]
+        public string? Action { get; set; }
+        public string? AdminNote { get; set; }
         public DateTime CreatedAt { get; set; } = DateTime.Now;
-
         public DateTime? ReviewedAt { get; set; }
 
-        // Navigation Properties
         [ForeignKey("PostId")]
-        public virtual CommunityPosts Post { get; set; }
-
+        public virtual CommunityPosts Post { get; set; } = null!;
         [ForeignKey("ReporterId")]
-        public virtual Users Reporter { get; set; }
-
+        public virtual Users Reporter { get; set; } = null!;
         [ForeignKey("ReviewedById")]
-        public virtual Users ReviewedBy { get; set; }
+        public virtual Users? ReviewedBy { get; set; }
     }
 }

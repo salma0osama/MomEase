@@ -2,9 +2,6 @@
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.ComponentModel.DataAnnotations;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using MomEase.core.Enums;
 
 namespace MomEase.core.Entities
@@ -17,22 +14,21 @@ namespace MomEase.core.Entities
         [Required]
         public int UserId { get; set; }
 
-        public MediaType? Mediatype { get; set; }
-
-        [MaxLength(500)]
-        public string Mediaurl { get; set; }
-
-        public string Text { get; set; }
+        public string? Text { get; set; }
 
         [Required]
         public DateTime CreatedAt { get; set; } = DateTime.Now;
 
+        public DateTime? UpdatedAt { get; set; }
+
         // Navigation Properties
         [ForeignKey("UserId")]
-        public virtual Users User { get; set; }
+        public virtual Users User { get; set; } = null!;
 
+        public virtual ICollection<PostMedia> PostMedia { get; set; }
         public virtual ICollection<PostComments> PostComments { get; set; }
         public virtual ICollection<PostReactions> PostReactions { get; set; }
         public virtual ICollection<PostReports> PostReports { get; set; }
+        public virtual ICollection<SavedPosts> SavedPosts { get; set; }
     }
 }

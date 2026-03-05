@@ -20,14 +20,19 @@ namespace MomEase.core.Entities
         public int UserId { get; set; }
 
         [Required]
-        public string Text { get; set; }
+        public string Text { get; set; } = string.Empty;
+
+        [Required]
+        public DateTime CreatedAt { get; set; } = DateTime.Now;
+
+        public DateTime? UpdatedAt { get; set; }
 
         // Navigation Properties
         [ForeignKey("PostId")]
-        public virtual CommunityPosts Post { get; set; }
+        public virtual CommunityPosts Post { get; set; } = null!;
 
         [ForeignKey("UserId")]
-        public virtual Users User { get; set; }
+        public virtual Users User { get; set; } = null!;
     }
 
 }

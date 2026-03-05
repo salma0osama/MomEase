@@ -146,6 +146,9 @@ namespace MomEase
             builder.Services.AddScoped<ISkinAnalysisAIService, SkinAnalysisAIService>();
             builder.Services.AddHttpClient();
 
+            builder.Services.AddScoped<ICommunityRepository, CommunityRepository>();
+            builder.Services.AddScoped<ICommunityService, CommunityService>();
+
             builder.Services.AddControllers().AddJsonOptions(options =>
             {
                 // ✅ تحويل كل الـ Enums لـ strings
