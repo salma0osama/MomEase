@@ -80,6 +80,7 @@ namespace MomEase
             // Growth Record Repository & Service
             builder.Services.AddScoped<IGrowthRecordRepository, GrowthRecordRepository>();
             builder.Services.AddScoped<IGrowthRecordService, GrowthRecordService>();
+            builder.Services.AddScoped<IGrowthPercentileReferenceRepository, GrowthPercentileReferenceRepository>();
             // Feeding Record Repository & Service
             builder.Services.AddScoped<IFeedingReferenceRepository, FeedingReferenceRepository>();
             builder.Services.AddScoped<IFeedingRecordRepository, FeedingRecordRepository>();
@@ -94,6 +95,9 @@ namespace MomEase
             // Sleep Reference Repository
             builder.Services.AddScoped<ISleepReferenceRepository, SleepReferenceRepository>();
 
+            //GrowthReport Repository & Service
+            builder.Services.AddScoped<IGrowthReportRepository, GrowthReportRepository>();
+            builder.Services.AddScoped<IGrowthReportService, GrowthReportService>();
             // ChatBot Services
             builder.Services.AddScoped<IChatBotRepository, ChatBotRepository>();
             builder.Services.AddScoped<IChatBotService, ChatBotService>();
@@ -143,6 +147,7 @@ namespace MomEase
             builder.Services.AddScoped<IVaccinationRepository, VaccinationRepository>();
             builder.Services.AddScoped<IVaccinationService, VaccinationService>();
 
+            
             builder.Services.AddScoped<ISkinAnalysisAIService, SkinAnalysisAIService>();
             builder.Services.AddHttpClient();
 

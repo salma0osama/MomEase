@@ -32,7 +32,7 @@ namespace MomEase.core.Entities
         public decimal? P95 { get; set; }
 
         [MaxLength(500)]
-        public string Notes { get; set; }
+        public string? Notes { get; set; }
 
         // Navigation Property
         public virtual ICollection<GrowthReports> GrowthReports { get; set; }

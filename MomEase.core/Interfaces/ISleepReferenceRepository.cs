@@ -14,6 +14,7 @@ namespace MomEase.core.Interfaces
     {
         Task<SleepReference?> GetByIdAsync(int sleepRefId);
         Task<SleepReference?> GetByAgeAsync(int ageInMonths);
+        Task<SleepReference> GetByAgeMonthsAsync(int ageMonths);
         Task<List<SleepReference>> GetAllAsync();
         Task<int> SaveChangesAsync();
     }

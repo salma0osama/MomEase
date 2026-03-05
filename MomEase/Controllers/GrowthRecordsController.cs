@@ -141,5 +141,67 @@ namespace MomEase.api.Controllers
                 return BadRequest(new { success = false, message = ex.Message });
             }
         }
+        // GET /api/children/5/growth-records/statistics
+        [HttpGet("statistics")]
+        public async Task<IActionResult> GetStatistics(int childId)
+        {
+            try
+            {
+                var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value);
+                var result = await _service.GetStatisticsAsync(childId, userId);
+
+                return Ok(new { success = true, data = result });
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return Forbid();
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { success = false, message = ex.Message });
+            }
+        }
+
+        // GET /api/children/5/growth-records/weekly
+        [HttpGet("weekly")]
+        public async Task<IActionResult> GetWeekly(int childId)
+        {
+            try
+            {
+                var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value);
+                var result = await _service.GetWeeklyGrowthAsync(childId, userId);
+
+                return Ok(new { success = true, data = result });
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return Forbid();
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { success = false, message = ex.Message });
+            }
+        }
+
+        // GET /api/children/5/growth-records/monthly
+        [HttpGet("monthly")]
+        public async Task<IActionResult> GetMonthly(int childId)
+        {
+            try
+            {
+                var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value);
+                var result = await _service.GetMonthlyGrowthAsync(childId, userId);
+
+                return Ok(new { success = true, data = result });
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return Forbid();
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { success = false, message = ex.Message });
+            }
+        }
     }
 }

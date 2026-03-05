@@ -15,5 +15,8 @@ namespace MomEase.core.Interfaces
         Task<GrowthRecordDto> UpdateAsync(int growthId, int childId, int userId, UpdateGrowthRecordDto dto);
         Task<bool> DeleteAsync(int growthId, int childId, int userId);
         Task<GrowthChartDto> GetChartDataAsync(int childId, int userId);
+        Task<GrowthStatisticsDto> GetStatisticsAsync(int childId, int userId);
+        Task<WeeklyGrowthDto> GetWeeklyGrowthAsync(int childId, int userId);
+        Task<MonthlyGrowthDto> GetMonthlyGrowthAsync(int childId, int userId);
     }
 }

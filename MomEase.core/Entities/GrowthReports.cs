@@ -28,7 +28,7 @@ namespace MomEase.core.Entities
 
         public string ReportContent { get; set; }
 
-        public GrowthStatus? GrowthStatus { get; set; }
+        public string? GrowthStatus { get; set; }
 
         // Navigation Properties
         [ForeignKey("ChildId")]

@@ -64,5 +64,29 @@ namespace MomEase.infra.Repositories
             return await _context.GrowthRecords
                 .AnyAsync(g => g.GrowthId == growthId && g.ChildId == childId);
         }
+        public async Task<IEnumerable<GrowthRecords>> GetByDateRangeAsync(
+    int childId,
+    DateTime startDate,
+    DateTime endDate)
+        {
+            return await _context.GrowthRecords
+                .Where(g => g.ChildId == childId
+                         && g.RecordDate >= startDate
+                         && g.RecordDate <= endDate)
+                .OrderBy(g => g.RecordDate)
+                .ToListAsync();
+        }
+
+        public async Task<IEnumerable<GrowthRecords>> GetLastNRecordsAsync(
+            int childId,
+            int count)
+        {
+            return await _context.GrowthRecords
+                .Where(g => g.ChildId == childId)
+                .OrderByDescending(g => g.RecordDate)
+                .Take(count)
+                .OrderBy(g => g.RecordDate) // reverse back
+                .ToListAsync();
+        }
     }
 }

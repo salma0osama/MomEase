@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using MomEase.infra.Data;
 
@@ -11,9 +12,11 @@ using MomEase.infra.Data;
 namespace MomEase.infra.Migrations
 {
     [DbContext(typeof(MomEaseDbContext))]
-    partial class PostCareDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260304153300_growthpercentilenotenull")]
+    partial class growthpercentilenotenull
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -396,11 +399,17 @@ namespace MomEase.infra.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
-                    b.Property<string>("Text")
-                        .HasColumnType("nvarchar(max)");
+                    b.Property<int?>("Mediatype")
+                        .HasColumnType("int");
 
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("datetime2");
+                    b.Property<string>("Mediaurl")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("Text")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<int>("UserId")
                         .HasColumnType("int");
@@ -616,8 +625,8 @@ namespace MomEase.infra.Migrations
                     b.Property<int>("ChildId")
                         .HasColumnType("int");
 
-                    b.Property<string>("GrowthStatus")
-                        .HasColumnType("nvarchar(max)");
+                    b.Property<int?>("GrowthStatus")
+                        .HasColumnType("int");
 
                     b.Property<DateTime>("PeriodEnd")
                         .HasColumnType("datetime2");
@@ -757,18 +766,12 @@ namespace MomEase.infra.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("CommentId"));
 
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
                     b.Property<int>("PostId")
                         .HasColumnType("int");
 
                     b.Property<string>("Text")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("datetime2");
 
                     b.Property<int>("UserId")
                         .HasColumnType("int");
@@ -780,35 +783,6 @@ namespace MomEase.infra.Migrations
                     b.HasIndex("UserId");
 
                     b.ToTable("PostComments");
-                });
-
-            modelBuilder.Entity("MomEase.core.Entities.PostMedia", b =>
-                {
-                    b.Property<int>("MediaId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("MediaId"));
-
-                    b.Property<int>("MediaType")
-                        .HasColumnType("int");
-
-                    b.Property<string>("MediaUrl")
-                        .IsRequired()
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
-                    b.Property<int>("Order")
-                        .HasColumnType("int");
-
-                    b.Property<int>("PostId")
-                        .HasColumnType("int");
-
-                    b.HasKey("MediaId");
-
-                    b.HasIndex("PostId");
-
-                    b.ToTable("PostMedias");
                 });
 
             modelBuilder.Entity("MomEase.core.Entities.PostReactions", b =>
@@ -1509,17 +1483,6 @@ namespace MomEase.infra.Migrations
                     b.Navigation("User");
                 });
 
-            modelBuilder.Entity("MomEase.core.Entities.PostMedia", b =>
-                {
-                    b.HasOne("MomEase.core.Entities.CommunityPosts", "Post")
-                        .WithMany("PostMedia")
-                        .HasForeignKey("PostId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Post");
-                });
-
             modelBuilder.Entity("MomEase.core.Entities.PostReactions", b =>
                 {
                     b.HasOne("MomEase.core.Entities.CommunityPosts", "Post")
@@ -1738,8 +1701,6 @@ namespace MomEase.infra.Migrations
             modelBuilder.Entity("MomEase.core.Entities.CommunityPosts", b =>
                 {
                     b.Navigation("PostComments");
-
-                    b.Navigation("PostMedia");
 
                     b.Navigation("PostReactions");
 

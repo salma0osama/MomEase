@@ -11,6 +11,7 @@ namespace MomEase.core.Interfaces
         Task<FeedingReference?> GetByIdAsync(int feedingRefId);
         Task<FeedingReference?> GetByAgeAndTypeAsync(int ageInMonths, FeedingTypeForBaby feedingType);
         Task<List<FeedingReference>> GetByAgeAsync(int ageInMonths);
+
         Task<List<FeedingReference>> GetAllAsync();
         Task<int> SaveChangesAsync();
     }
