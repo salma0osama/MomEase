@@ -1,4 +1,5 @@
-﻿using MomEase.core.DTOS.MotherProfileDto;
+﻿using Microsoft.AspNetCore.Http;
+using MomEase.core.DTOS.MotherProfileDto;
 using MomEase.core.Entities;
 using MomEase.core.Interfaces;
 using System;
@@ -16,13 +17,16 @@ namespace MomEase.infra.Services
     {
         private readonly IMotherProfileRepository _motherProfileRepository;
         private readonly IAuthRepository _authRepository;
+        private readonly IFileStorageService _fileStorageService;
 
         public MotherProfileService(
             IMotherProfileRepository motherProfileRepository,
-            IAuthRepository authRepository)
+            IAuthRepository authRepository,
+            IFileStorageService fileStorageService)
         {
             _motherProfileRepository = motherProfileRepository ?? throw new ArgumentNullException(nameof(motherProfileRepository));
             _authRepository = authRepository ?? throw new ArgumentNullException(nameof(authRepository));
+            _fileStorageService = fileStorageService;
         }
 
         public async Task<MotherProfileResponseDto> CreateMotherProfileAsync(CreateMotherProfileDto createDto)
@@ -186,6 +190,51 @@ namespace MomEase.infra.Services
             {
                 throw new InvalidOperationException($"Failed to delete mother profile: {ex.Message}", ex);
             }
+        }
+        public async Task<string> UploadProfilePictureAsync(int userId, IFormFile photo)
+        {
+            var profile = await _motherProfileRepository.GetByUserIdAsync(userId);
+            if (profile == null)
+                throw new InvalidOperationException("Mother profile not found");
+
+            if (photo == null || photo.Length == 0)
+                throw new ArgumentException("Invalid file");
+
+            if (photo.Length > 5 * 1024 * 1024)
+                throw new ArgumentException("Photo size must be less than 5MB");
+
+            var allowedExtensions = new[] { ".jpg", ".jpeg", ".png" };
+            var extension = Path.GetExtension(photo.FileName).ToLowerInvariant();
+            if (!allowedExtensions.Contains(extension))
+                throw new ArgumentException("Unsupported file type. Allowed: JPG, JPEG, PNG");
+
+            // Delete old photo if exists
+            if (!string.IsNullOrEmpty(profile.ProfilePictureUrl))
+                await _fileStorageService.DeleteFileAsync(profile.ProfilePictureUrl);
+
+            var photoUrl = await _fileStorageService.UploadFileAsync(photo, "profiles");
+
+            profile.ProfilePictureUrl = photoUrl;
+            await _motherProfileRepository.UpdateAsync(profile);
+            await _motherProfileRepository.SaveChangesAsync();
+
+            return photoUrl;
+        }
+
+        public async Task DeleteProfilePictureAsync(int userId)
+        {
+            var profile = await _motherProfileRepository.GetByUserIdAsync(userId);
+            if (profile == null)
+                throw new InvalidOperationException("Mother profile not found");
+
+            if (string.IsNullOrEmpty(profile.ProfilePictureUrl))
+                throw new InvalidOperationException("No profile picture to delete");
+
+            await _fileStorageService.DeleteFileAsync(profile.ProfilePictureUrl);
+
+            profile.ProfilePictureUrl = null;
+            await _motherProfileRepository.UpdateAsync(profile);
+            await _motherProfileRepository.SaveChangesAsync();
         }
     }
 }

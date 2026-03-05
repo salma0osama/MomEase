@@ -26,6 +26,8 @@ namespace MomEase.core.Entities
         public MentalHealthStatus? MentalHealthStatus { get; set; }
 
         public HealthStatus? HealthStatus { get; set; }
+        [MaxLength(500)]
+        public string? ProfilePictureUrl { get; set; }
 
         // Navigation Property
         [ForeignKey("UserId")]

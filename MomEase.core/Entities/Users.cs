@@ -62,5 +62,6 @@ namespace MomEase.core.Entities
         public virtual ICollection<RefreshToken> RefreshTokens { get; set; }
         public virtual ICollection<SearchHistory> SearchHistories { get; set; }
         public virtual ICollection<SavedArticles> SavedArticles { get; set; }
+        public virtual ICollection<SavedPosts> SavedPosts { get; set; }
     }
 }

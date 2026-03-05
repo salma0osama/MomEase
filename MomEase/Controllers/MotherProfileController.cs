@@ -241,5 +241,62 @@ namespace MomEase.api.Controllers
                 });
             }
         }
+        /// <summary>
+        /// POST /api/mother-profile/photo - رفع صورة البروفايل
+        /// </summary>
+        [HttpPost("photo")]
+        [Authorize(Roles = "MOTHER")]
+        [Consumes("multipart/form-data")]
+        public async Task<IActionResult> UploadProfilePicture(IFormFile photo)
+        {
+            try
+            {
+                var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value);
+                var photoUrl = await _motherProfileService.UploadProfilePictureAsync(userId, photo);
+
+                return Ok(new
+                {
+                    success = true,
+                    message = "Profile picture uploaded successfully",
+                    data = new { photoUrl }
+                });
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { success = false, message = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return NotFound(new { success = false, message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { success = false, message = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// DELETE /api/mother-profile/photo - حذف صورة البروفايل
+        /// </summary>
+        [HttpDelete("photo")]
+        [Authorize(Roles = "MOTHER")]
+        public async Task<IActionResult> DeleteProfilePicture()
+        {
+            try
+            {
+                var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value);
+                await _motherProfileService.DeleteProfilePictureAsync(userId);
+
+                return Ok(new { success = true, message = "Profile picture deleted successfully" });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { success = false, message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { success = false, message = ex.Message });
+            }
+        }
     }
 }

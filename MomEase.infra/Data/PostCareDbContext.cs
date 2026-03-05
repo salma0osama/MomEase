@@ -66,6 +66,9 @@ namespace MomEase.infra.Data
 
         public DbSet<RefreshToken> RefreshTokens { get; set; }
         public DbSet<PasswordResetToken> PasswordResetTokens { get; set; }
+        public DbSet<SavedPosts> SavedPosts { get; set; }
+
+        public DbSet<PostMedia> PostMedias { get; set; }
         // ============================
         // Fluent API
         // ============================
@@ -319,6 +322,30 @@ namespace MomEase.infra.Data
                 entity.HasOne(e => e.User)
                     .WithMany(u => u.RefreshTokens)
                     .HasForeignKey(e => e.UserId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+            modelBuilder.Entity<PostMedia>(entity =>
+            {
+                entity.HasKey(e => e.MediaId);
+
+                entity.HasOne(e => e.Post)
+                    .WithMany(p => p.PostMedia)
+                    .HasForeignKey(e => e.PostId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+            modelBuilder.Entity<SavedPosts>(entity =>
+            {
+                entity.HasKey(e => e.SavedPostId);
+                entity.HasIndex(e => new { e.UserId, e.PostId }).IsUnique();
+
+                entity.HasOne(e => e.User)
+                    .WithMany(u => u.SavedPosts)
+                    .HasForeignKey(e => e.UserId)
+                    .OnDelete(DeleteBehavior.NoAction);
+
+                entity.HasOne(e => e.Post)
+                    .WithMany(p => p.SavedPosts)
+                    .HasForeignKey(e => e.PostId)
                     .OnDelete(DeleteBehavior.Cascade);
             });
         }

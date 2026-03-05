@@ -1,0 +1,535 @@
+﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
+using MomEase.core.Entities;
+using MomEase.core.Interfaces;
+using MomEase.infra.Data;
+
+namespace MomEase.infra.Repositories
+{
+    public class CommunityRepository : ICommunityRepository
+    {
+        private readonly MomEaseDbContext _context;
+        private readonly ILogger<CommunityRepository> _logger;
+
+        public CommunityRepository(
+            MomEaseDbContext context,
+            ILogger<CommunityRepository> logger)
+        {
+            _context = context;
+            _logger = logger;
+        }
+
+        // ===== Posts =====
+
+        public async Task<(List<CommunityPosts> Posts, int TotalCount)> GetAllPostsAsync(
+            int pageNumber, int pageSize)
+        {
+            try
+            {
+                var query = _context.CommunityPosts
+                    .Include(p => p.User)
+                    .Include(p => p.PostMedia)
+                    .Include(p => p.PostComments)
+                    .Include(p => p.PostReactions)
+                    .OrderByDescending(p => p.CreatedAt);
+
+                var totalCount = await query.CountAsync();
+
+                var posts = await query
+                    .Skip((pageNumber - 1) * pageSize)
+                    .Take(pageSize)
+                    .ToListAsync();
+
+                return (posts, totalCount);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving all posts");
+                throw;
+            }
+        }
+
+        public async Task<CommunityPosts?> GetPostByIdAsync(int postId)
+        {
+            try
+            {
+                return await _context.CommunityPosts
+                    .Include(p => p.User)
+                    .Include(p => p.PostMedia.OrderBy(m => m.Order))
+                    .Include(p => p.PostComments)
+                    .Include(p => p.PostReactions)
+                    .FirstOrDefaultAsync(p => p.PostId == postId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving post {PostId}", postId);
+                throw;
+            }
+        }
+
+        public async Task<List<CommunityPosts>> GetPostsByUserIdAsync(int userId)
+        {
+            try
+            {
+                return await _context.CommunityPosts
+                    .Include(p => p.User)
+                    .Include(p => p.PostMedia.OrderBy(m => m.Order))
+                    .Include(p => p.PostComments)
+                    .Include(p => p.PostReactions)
+                    .Where(p => p.UserId == userId)
+                    .OrderByDescending(p => p.CreatedAt)
+                    .ToListAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving posts for user {UserId}", userId);
+                throw;
+            }
+        }
+
+        public async Task<CommunityPosts> AddPostAsync(CommunityPosts post)
+        {
+            try
+            {
+                await _context.CommunityPosts.AddAsync(post);
+                await _context.SaveChangesAsync();
+                return post;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error adding post");
+                throw;
+            }
+        }
+
+        public async Task<CommunityPosts> UpdatePostAsync(CommunityPosts post)
+        {
+            try
+            {
+                _context.CommunityPosts.Update(post);
+                await _context.SaveChangesAsync();
+                return post;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating post {PostId}", post.PostId);
+                throw;
+            }
+        }
+
+        public async Task DeletePostAsync(CommunityPosts post)
+        {
+            try
+            {
+                _context.CommunityPosts.Remove(post);
+                await _context.SaveChangesAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error deleting post {PostId}", post.PostId);
+                throw;
+            }
+        }
+
+        // ===== Media =====
+
+        public async Task AddPostMediaAsync(List<PostMedia> mediaList)
+        {
+            try
+            {
+                await _context.PostMedias.AddRangeAsync(mediaList);
+                await _context.SaveChangesAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error adding post media");
+                throw;
+            }
+        }
+
+        public async Task DeletePostMediaAsync(int postId)
+        {
+            try
+            {
+                var media = await _context.PostMedias
+                    .Where(m => m.PostId == postId)
+                    .ToListAsync();
+
+                _context.PostMedias.RemoveRange(media);
+                await _context.SaveChangesAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error deleting media for post {PostId}", postId);
+                throw;
+            }
+        }
+
+        // ===== Comments =====
+
+        public async Task<List<PostComments>> GetPostCommentsAsync(int postId)
+        {
+            try
+            {
+                return await _context.PostComments
+                    .Include(c => c.User)
+                    .Where(c => c.PostId == postId)
+                    .OrderByDescending(c => c.CreatedAt)
+                    .ToListAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving comments for post {PostId}", postId);
+                throw;
+            }
+        }
+
+        public async Task<PostComments?> GetCommentByIdAsync(int commentId)
+        {
+            try
+            {
+                return await _context.PostComments
+                    .Include(c => c.User)
+                    .Include(c => c.Post)
+                    .FirstOrDefaultAsync(c => c.CommentId == commentId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving comment {CommentId}", commentId);
+                throw;
+            }
+        }
+
+        public async Task<PostComments> AddCommentAsync(PostComments comment)
+        {
+            try
+            {
+                await _context.PostComments.AddAsync(comment);
+                await _context.SaveChangesAsync();
+                return comment;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error adding comment");
+                throw;
+            }
+        }
+
+        public async Task<PostComments> UpdateCommentAsync(PostComments comment)
+        {
+            try
+            {
+                _context.PostComments.Update(comment);
+                await _context.SaveChangesAsync();
+                return comment;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating comment {CommentId}", comment.CommentId);
+                throw;
+            }
+        }
+
+        public async Task DeleteCommentAsync(PostComments comment)
+        {
+            try
+            {
+                _context.PostComments.Remove(comment);
+                await _context.SaveChangesAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error deleting comment {CommentId}", comment.CommentId);
+                throw;
+            }
+        }
+
+        // ===== Reactions =====
+
+        public async Task<List<PostReactions>> GetPostReactionsAsync(int postId)
+        {
+            try
+            {
+                return await _context.PostReactions
+                    .Include(r => r.User)
+                    .Where(r => r.PostId == postId)
+                    .ToListAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving reactions for post {PostId}", postId);
+                throw;
+            }
+        }
+
+        public async Task<PostReactions?> GetUserReactionAsync(int postId, int userId)
+        {
+            try
+            {
+                return await _context.PostReactions
+                    .FirstOrDefaultAsync(r => r.PostId == postId && r.UserId == userId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving reaction for post {PostId}", postId);
+                throw;
+            }
+        }
+
+        public async Task<PostReactions> AddReactionAsync(PostReactions reaction)
+        {
+            try
+            {
+                await _context.PostReactions.AddAsync(reaction);
+                await _context.SaveChangesAsync();
+                return reaction;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error adding reaction");
+                throw;
+            }
+        }
+
+        public async Task<PostReactions> UpdateReactionAsync(PostReactions reaction)
+        {
+            try
+            {
+                _context.PostReactions.Update(reaction);
+                await _context.SaveChangesAsync();
+                return reaction;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating reaction {ReactionId}", reaction.ReactionId);
+                throw;
+            }
+        }
+
+        public async Task DeleteReactionAsync(PostReactions reaction)
+        {
+            try
+            {
+                _context.PostReactions.Remove(reaction);
+                await _context.SaveChangesAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error deleting reaction {ReactionId}", reaction.ReactionId);
+                throw;
+            }
+        }
+        // ===== Saved Posts =====
+
+        public async Task<SavedPosts?> GetSavedPostAsync(int postId, int userId)
+        {
+            try
+            {
+                return await _context.SavedPosts
+                    .FirstOrDefaultAsync(s => s.PostId == postId && s.UserId == userId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving saved post {PostId}", postId);
+                throw;
+            }
+        }
+
+        public async Task<SavedPosts> SavePostAsync(SavedPosts savedPost)
+        {
+            try
+            {
+                await _context.SavedPosts.AddAsync(savedPost);
+                await _context.SaveChangesAsync();
+                return savedPost;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error saving post {PostId}", savedPost.PostId);
+                throw;
+            }
+        }
+
+        public async Task RemoveSavedPostAsync(SavedPosts savedPost)
+        {
+            try
+            {
+                _context.SavedPosts.Remove(savedPost);
+                await _context.SaveChangesAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error removing saved post {PostId}", savedPost.PostId);
+                throw;
+            }
+        }
+
+        public async Task<List<SavedPosts>> GetUserSavedPostsAsync(int userId)
+        {
+            try
+            {
+                return await _context.SavedPosts
+                    .Include(s => s.Post)
+                        .ThenInclude(p => p.User)
+                    .Include(s => s.Post)
+                        .ThenInclude(p => p.PostMedia)
+                    .Include(s => s.Post)
+                        .ThenInclude(p => p.PostComments)
+                    .Include(s => s.Post)
+                        .ThenInclude(p => p.PostReactions)
+                    .Where(s => s.UserId == userId)
+                    .OrderByDescending(s => s.SavedAt)
+                    .ToListAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving saved posts for user {UserId}", userId);
+                throw;
+            }
+        }
+
+        // ===== Reports =====
+
+        public async Task<PostReports?> GetReportAsync(int postId, int userId)
+        {
+            try
+            {
+                return await _context.PostReports
+                    .FirstOrDefaultAsync(r => r.PostId == postId && r.ReporterId == userId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving report for post {PostId}", postId);
+                throw;
+            }
+        }
+
+        public async Task<PostReports> AddReportAsync(PostReports report)
+        {
+            try
+            {
+                await _context.PostReports.AddAsync(report);
+                await _context.SaveChangesAsync();
+                return report;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error adding report for post {PostId}", report.PostId);
+                throw;
+            }
+        }
+        public async Task<PostMedia?> GetPostMediaByIdAsync(int mediaId)
+        {
+            try
+            {
+                return await _context.PostMedias
+                    .FirstOrDefaultAsync(m => m.MediaId == mediaId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving media {MediaId}", mediaId);
+                throw;
+            }
+        }
+
+        public async Task DeleteSingleMediaAsync(PostMedia media)
+        {
+            try
+            {
+                _context.PostMedias.Remove(media);
+                await _context.SaveChangesAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error deleting media {MediaId}", media.MediaId);
+                throw;
+            }
+        }
+        public async Task<List<PostReports>> GetAllReportsAsync()
+        {
+            try
+            {
+                return await _context.PostReports
+                    .Include(r => r.Reporter)
+                    .Include(r => r.Post)
+                    .Include(r => r.ReviewedBy)
+                    .OrderByDescending(r => r.CreatedAt)
+                    .ToListAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving all reports");
+                throw;
+            }
+        }
+
+        public async Task<PostReports?> GetReportByIdAsync(int reportId)
+        {
+            try
+            {
+                return await _context.PostReports
+                    .Include(r => r.Reporter)
+                    .Include(r => r.Post)
+                    .Include(r => r.ReviewedBy)
+                    .FirstOrDefaultAsync(r => r.ReportId == reportId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving report {ReportId}", reportId);
+                throw;
+            }
+        }
+
+        public async Task<List<PostReports>> GetPendingReportsAsync()
+        {
+            try
+            {
+                return await _context.PostReports
+                    .Include(r => r.Reporter)
+                    .Include(r => r.Post)
+                    .Where(r => r.ReviewedById == null)
+                    .OrderByDescending(r => r.CreatedAt)
+                    .ToListAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving pending reports");
+                throw;
+            }
+        }
+
+        public async Task<List<PostReports>> GetReviewedReportsAsync()
+        {
+            try
+            {
+                return await _context.PostReports
+                    .Include(r => r.Reporter)
+                    .Include(r => r.Post)
+                    .Include(r => r.ReviewedBy)
+                    .Where(r => r.ReviewedById != null)
+                    .OrderByDescending(r => r.ReviewedAt)
+                    .ToListAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving reviewed reports");
+                throw;
+            }
+        }
+
+        public async Task<PostReports> UpdateReportAsync(PostReports report)
+        {
+            try
+            {
+                _context.PostReports.Update(report);
+                await _context.SaveChangesAsync();
+                return report;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating report {ReportId}", report.ReportId);
+                throw;
+            }
+        }
+    }
+}

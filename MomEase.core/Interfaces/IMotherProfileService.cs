@@ -1,4 +1,5 @@
-﻿using MomEase.core.DTOS.MotherProfileDto;
+﻿using Microsoft.AspNetCore.Http;
+using MomEase.core.DTOS.MotherProfileDto;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -33,5 +34,8 @@ namespace MomEase.core.Interfaces
         /// Delete mother profile
         /// </summary>
         Task<bool> DeleteMotherProfileAsync(int userId);
+
+        Task<string> UploadProfilePictureAsync(int userId, IFormFile photo);
+        Task DeleteProfilePictureAsync(int userId);
     }
 }
