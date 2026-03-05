@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using MomEase.infra.Data;
 
@@ -11,9 +12,11 @@ using MomEase.infra.Data;
 namespace MomEase.infra.Migrations
 {
     [DbContext(typeof(MomEaseDbContext))]
-    partial class PostCareDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260304153300_growthpercentilenotenull")]
+    partial class growthpercentilenotenull
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -622,8 +625,8 @@ namespace MomEase.infra.Migrations
                     b.Property<int>("ChildId")
                         .HasColumnType("int");
 
-                    b.Property<string>("GrowthStatus")
-                        .HasColumnType("nvarchar(max)");
+                    b.Property<int?>("GrowthStatus")
+                        .HasColumnType("int");
 
                     b.Property<DateTime>("PeriodEnd")
                         .HasColumnType("datetime2");

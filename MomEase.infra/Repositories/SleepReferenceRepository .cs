@@ -42,7 +42,13 @@ namespace MomEase.infra.Repositories
                 .OrderBy(s => s.AgeMinMonths)
                 .ToListAsync();
         }
-
+        public async Task<SleepReference> GetByAgeMonthsAsync(int ageMonths)
+        {
+            return await _context.SleepReferences
+                .FirstOrDefaultAsync(r =>
+                    r.AgeMinMonths <= ageMonths &&
+                    r.AgeMaxMonths >= ageMonths);
+        }
         public async Task<int> SaveChangesAsync()
         {
             return await _context.SaveChangesAsync();
