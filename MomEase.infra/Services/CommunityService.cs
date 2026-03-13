@@ -10,15 +10,18 @@ namespace MomEase.infra.Services
     {
         private readonly ICommunityRepository _communityRepository;
         private readonly IFileStorageService _fileStorageService;
+        private readonly INotificationService _notificationService; // ⬅️ إضافة
         private readonly ILogger<CommunityService> _logger;
 
         public CommunityService(
             ICommunityRepository communityRepository,
             IFileStorageService fileStorageService,
+            INotificationService notificationService, // ⬅️ إضافة
             ILogger<CommunityService> logger)
         {
             _communityRepository = communityRepository;
             _fileStorageService = fileStorageService;
+            _notificationService = notificationService; // ⬅️ إضافة
             _logger = logger;
         }
 
@@ -140,7 +143,7 @@ namespace MomEase.infra.Services
         }
 
         public async Task<CommunityPostDto> UpdatePostAsync(
-    int postId, int userId, UpdatePostDto dto)
+            int postId, int userId, UpdatePostDto dto)
         {
             try
             {
@@ -332,6 +335,38 @@ namespace MomEase.infra.Services
                 // Reload with user data
                 var full = await _communityRepository.GetCommentByIdAsync(added.CommentId);
 
+                // 🔔 إرسال Notification لصاحب البوست (إلا لو هو نفسه اللي علّق)
+                if (post.UserId != userId)
+                {
+                    _logger.LogInformation(
+                        "Sending comment notification to post owner {PostOwnerId}",
+                        post.UserId);
+
+                    try
+                    {
+                        var commentPreview = dto.Text.Length > 50
+                            ? dto.Text.Substring(0, 50) + "..."
+                            : dto.Text;
+
+                        await _notificationService.SendRealtimeNotificationAsync(
+                            post.UserId,
+                            "💬 New Comment",
+                            $"Someone commented on your post: \"{commentPreview}\"",
+                            "CommunityComment",
+                            postId
+                        );
+
+                        _logger.LogInformation(
+                            "Comment notification sent to user {UserId}",
+                            post.UserId);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Failed to send comment notification");
+                        // لا نرمي Exception - Comment تم إضافته بنجاح
+                    }
+                }
+
                 _logger.LogInformation("Comment added {CommentId} on post {PostId}",
                     added.CommentId, postId);
 
@@ -464,6 +499,43 @@ namespace MomEase.infra.Services
 
                 var added = await _communityRepository.AddReactionAsync(reaction);
 
+                // 🔔 إرسال Notification لصاحب البوست (إلا لو هو نفسه اللي تفاعل)
+                if (post.UserId != userId)
+                {
+                    _logger.LogInformation(
+                        "Sending reaction notification to post owner {PostOwnerId}",
+                        post.UserId);
+
+                    try
+                    {
+                        string reactionEmoji = reactionType switch
+                        {
+                            ReactionType.LIKE => "👍",
+                            ReactionType.LOVE => "❤️",
+                            ReactionType.SUPPORT => "🤗",
+                            ReactionType.HELPFUL => "💡",
+                            _ => "👏"
+                        };
+
+                        await _notificationService.SendRealtimeNotificationAsync(
+                            post.UserId,
+                            "👏 New Reaction",
+                            $"Someone reacted {reactionEmoji} to your post!",
+                            "CommunityReaction",
+                            postId
+                        );
+
+                        _logger.LogInformation(
+                            "Reaction notification sent to user {UserId}",
+                            post.UserId);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Failed to send reaction notification");
+                        // لا نرمي Exception - Reaction تمت إضافتها بنجاح
+                    }
+                }
+
                 _logger.LogInformation("Reaction added on post {PostId} by user {UserId}",
                     postId, userId);
 
@@ -569,95 +641,6 @@ namespace MomEase.infra.Services
             }
         }
 
-        // ===== Private Helpers =====
-
-        private void ValidateMediaFile(Microsoft.AspNetCore.Http.IFormFile file)
-        {
-            if (file.Length == 0)
-                throw new ArgumentException("File cannot be empty");
-
-            if (file.Length > 50 * 1024 * 1024)
-                throw new ArgumentException("File size must be less than 50MB");
-
-            var allowedExtensions = new[]
-            {
-                ".jpg", ".jpeg", ".png", ".gif", ".webp",
-                ".mp4", ".mov", ".avi", ".mkv"
-            };
-
-            var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
-            if (!allowedExtensions.Contains(extension))
-                throw new ArgumentException(
-                    "Unsupported file type. Allowed: JPG, PNG, GIF, WEBP, MP4, MOV, AVI, MKV");
-        }
-
-        private bool IsVideoExtension(string extension)
-        {
-            return new[] { ".mp4", ".mov", ".avi", ".mkv" }.Contains(extension);
-        }
-
-        private CommunityPostDto MapToPostDto(CommunityPosts post, int currentUserId)
-        {
-            var myReaction = post.PostReactions?
-                .FirstOrDefault(r => r.UserId == currentUserId);
-
-            return new CommunityPostDto
-            {
-                PostId = post.PostId,
-                UserId = post.UserId,
-                UserName = post.User != null
-                    ? $"{post.User.FirstName} {post.User.LastName}"
-                    : "",
-                UserPhoto = post.User?.MotherProfile?.ProfilePictureUrl,
-                //UserPhoto = null,
-                Text = post.Text,
-                Media = post.PostMedia?.OrderBy(m => m.Order)
-                    .Select(m => new PostMediaDto
-                    {
-                        MediaId = m.MediaId,
-                        MediaUrl = m.MediaUrl,
-                        MediaType = m.MediaType.ToString(),
-                        Order = m.Order
-                    }).ToList() ?? new(),
-                CommentsCount = post.PostComments?.Count ?? 0,
-                ReactionsCount = post.PostReactions?.Count ?? 0,
-                MyReaction = myReaction?.ReactionType.ToString(),
-                CreatedAt = post.CreatedAt,
-                UpdatedAt = post.UpdatedAt
-            };
-        }
-
-        private PostCommentDto MapToCommentDto(PostComments comment)
-        {
-            return new PostCommentDto
-            {
-                CommentId = comment.CommentId,
-                PostId = comment.PostId,
-                UserId = comment.UserId,
-                UserName = comment.User != null
-                    ? $"{comment.User.FirstName} {comment.User.LastName}"
-                    : "",
-                UserPhoto = comment.User?.MotherProfile?.ProfilePictureUrl,
-                //UserPhoto = null,
-                Text = comment.Text,
-                CreatedAt = comment.CreatedAt,
-                UpdatedAt = comment.UpdatedAt
-            };
-        }
-
-        private PostReactionDto MapToReactionDto(PostReactions reaction)
-        {
-            return new PostReactionDto
-            {
-                ReactionId = reaction.ReactionId,
-                PostId = reaction.PostId,
-                UserId = reaction.UserId,
-                UserName = reaction.User != null
-                    ? $"{reaction.User.FirstName} {reaction.User.LastName}"
-                    : "",
-                ReactionType = reaction.ReactionType.ToString()
-            };
-        }
         // ===== Saved Posts =====
 
         public async Task<SavedPostDto> SavePostAsync(int postId, int userId)
@@ -793,6 +776,7 @@ namespace MomEase.infra.Services
                 throw;
             }
         }
+
         public async Task<List<PostReportDto>> GetAllReportsAsync()
         {
             try
@@ -853,7 +837,7 @@ namespace MomEase.infra.Services
         }
 
         public async Task<PostReportDto> ReviewReportAsync(
-        int reportId, int adminId, ReviewReportDto dto)
+            int reportId, int adminId, ReviewReportDto dto)
         {
             try
             {
@@ -870,10 +854,12 @@ namespace MomEase.infra.Services
                     throw new ArgumentException(
                         "Invalid action. Must be: Dismiss, DeletePost, Warn");
 
+                var post = await _communityRepository.GetPostByIdAsync(report.PostId);
+
                 switch (dto.Action)
                 {
                     case "DeletePost":
-                        var post = await _communityRepository.GetPostByIdAsync(report.PostId);
+                        // 🔔 إرسال Notification: Admin حذف البوست
                         if (post != null)
                         {
                             if (post.PostMedia != null && post.PostMedia.Any())
@@ -881,15 +867,63 @@ namespace MomEase.infra.Services
                                     await _fileStorageService.DeleteFileAsync(media.MediaUrl);
 
                             await _communityRepository.DeletePostAsync(post);
-                            // TODO: Send notification to post owner
+
+                            _logger.LogInformation(
+                                "Sending post deletion notification to user {UserId}",
+                                post.UserId);
+
+                            try
+                            {
+                                await _notificationService.SendRealtimeNotificationAsync(
+                                    post.UserId,
+                                    "🚫 Post Removed",
+                                    $"Your post has been removed by admin due to community guideline violations. Reason: {dto.AdminNote ?? "Inappropriate content"}",
+                                    "CommunityPostDeleted",
+                                    post.PostId
+                                );
+
+                                _logger.LogInformation(
+                                    "Post deletion notification sent to user {UserId}",
+                                    post.UserId);
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger.LogError(ex, "Failed to send post deletion notification");
+                            }
                         }
                         break;
 
                     case "Warn":
-                        // TODO: Send warning notification to post owner
+                        // 🔔 إرسال Notification: Admin بعت تحذير
+                        if (post != null)
+                        {
+                            _logger.LogInformation(
+                                "Sending warning notification to user {UserId}",
+                                post.UserId);
+
+                            try
+                            {
+                                await _notificationService.SendRealtimeNotificationAsync(
+                                    post.UserId,
+                                    "⚠️ Warning from Admin",
+                                    dto.AdminNote ?? "Your post violates community guidelines. Please review our policies.",
+                                    "CommunityWarning",
+                                    post.PostId
+                                );
+
+                                _logger.LogInformation(
+                                    "Warning notification sent to user {UserId}",
+                                    post.UserId);
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger.LogError(ex, "Failed to send warning notification");
+                            }
+                        }
                         break;
 
                     case "Dismiss":
+                        // مفيش notification - البلاغ اترفض
                         break;
                 }
 
@@ -897,23 +931,110 @@ namespace MomEase.infra.Services
                 report.ReviewedAt = DateTime.Now;
                 report.Action = dto.Action;
                 report.AdminNote = dto.AdminNote?.Trim();
-                var updated = await _communityRepository.UpdateReportAsync(report);
 
-                // أضيفي السطر ده
-                var freshReport = await _communityRepository.GetReportByIdAsync(updated.ReportId);
+                await _communityRepository.UpdateReportAsync(report);
+
+                var freshReport = await _communityRepository.GetReportByIdAsync(reportId);
+
                 _logger.LogInformation(
                     "Report {ReportId} reviewed by admin {AdminId} with action {Action}",
                     reportId, adminId, dto.Action);
 
                 return MapToReportDto(freshReport!);
-
-                
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error reviewing report {ReportId}", reportId);
                 throw;
             }
+        }
+
+        // ===== Private Helpers =====
+
+        private void ValidateMediaFile(Microsoft.AspNetCore.Http.IFormFile file)
+        {
+            if (file.Length == 0)
+                throw new ArgumentException("File cannot be empty");
+
+            if (file.Length > 50 * 1024 * 1024)
+                throw new ArgumentException("File size must be less than 50MB");
+
+            var allowedExtensions = new[]
+            {
+                ".jpg", ".jpeg", ".png", ".gif", ".webp",
+                ".mp4", ".mov", ".avi", ".mkv"
+            };
+
+            var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
+            if (!allowedExtensions.Contains(extension))
+                throw new ArgumentException(
+                    "Unsupported file type. Allowed: JPG, PNG, GIF, WEBP, MP4, MOV, AVI, MKV");
+        }
+
+        private bool IsVideoExtension(string extension)
+        {
+            return new[] { ".mp4", ".mov", ".avi", ".mkv" }.Contains(extension);
+        }
+
+        private CommunityPostDto MapToPostDto(CommunityPosts post, int currentUserId)
+        {
+            var myReaction = post.PostReactions?
+                .FirstOrDefault(r => r.UserId == currentUserId);
+
+            return new CommunityPostDto
+            {
+                PostId = post.PostId,
+                UserId = post.UserId,
+                UserName = post.User != null
+                    ? $"{post.User.FirstName} {post.User.LastName}"
+                    : "",
+                UserPhoto = post.User?.MotherProfile?.ProfilePictureUrl,
+                Text = post.Text,
+                Media = post.PostMedia?.OrderBy(m => m.Order)
+                    .Select(m => new PostMediaDto
+                    {
+                        MediaId = m.MediaId,
+                        MediaUrl = m.MediaUrl,
+                        MediaType = m.MediaType.ToString(),
+                        Order = m.Order
+                    }).ToList() ?? new(),
+                CommentsCount = post.PostComments?.Count ?? 0,
+                ReactionsCount = post.PostReactions?.Count ?? 0,
+                MyReaction = myReaction?.ReactionType.ToString(),
+                CreatedAt = post.CreatedAt,
+                UpdatedAt = post.UpdatedAt
+            };
+        }
+
+        private PostCommentDto MapToCommentDto(PostComments comment)
+        {
+            return new PostCommentDto
+            {
+                CommentId = comment.CommentId,
+                PostId = comment.PostId,
+                UserId = comment.UserId,
+                UserName = comment.User != null
+                    ? $"{comment.User.FirstName} {comment.User.LastName}"
+                    : "",
+                UserPhoto = comment.User?.MotherProfile?.ProfilePictureUrl,
+                Text = comment.Text,
+                CreatedAt = comment.CreatedAt,
+                UpdatedAt = comment.UpdatedAt
+            };
+        }
+
+        private PostReactionDto MapToReactionDto(PostReactions reaction)
+        {
+            return new PostReactionDto
+            {
+                ReactionId = reaction.ReactionId,
+                PostId = reaction.PostId,
+                UserId = reaction.UserId,
+                UserName = reaction.User != null
+                    ? $"{reaction.User.FirstName} {reaction.User.LastName}"
+                    : "",
+                ReactionType = reaction.ReactionType.ToString()
+            };
         }
 
         private PostReportDto MapToReportDto(PostReports report)
@@ -930,8 +1051,8 @@ namespace MomEase.infra.Services
                 ReviewedByName = report.ReviewedBy != null
                     ? $"{report.ReviewedBy.FirstName} {report.ReviewedBy.LastName}"
                     : null,
-                Action = report.Action,        
-                AdminNote = report.AdminNote,  
+                Action = report.Action,
+                AdminNote = report.AdminNote,
                 CreatedAt = report.CreatedAt,
                 ReviewedAt = report.ReviewedAt,
                 IsReviewed = report.ReviewedById != null

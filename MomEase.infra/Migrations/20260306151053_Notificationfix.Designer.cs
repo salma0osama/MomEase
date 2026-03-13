@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using MomEase.infra.Data;
 
@@ -11,9 +12,11 @@ using MomEase.infra.Data;
 namespace MomEase.infra.Migrations
 {
     [DbContext(typeof(MomEaseDbContext))]
-    partial class PostCareDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260306151053_Notificationfix")]
+    partial class Notificationfix
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -469,41 +472,6 @@ namespace MomEase.infra.Migrations
                     b.HasKey("CryreasonId");
 
                     b.ToTable("CryReasons");
-                });
-
-            modelBuilder.Entity("MomEase.core.Entities.DeviceToken", b =>
-                {
-                    b.Property<int>("TokenId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("TokenId"));
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("bit");
-
-                    b.Property<DateTime?>("LastUsedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("Token")
-                        .IsRequired()
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
-                    b.Property<int>("UserId")
-                        .HasColumnType("int");
-
-                    b.HasKey("TokenId");
-
-                    b.HasIndex("Token")
-                        .IsUnique();
-
-                    b.HasIndex("UserId");
-
-                    b.ToTable("DeviceTokens");
                 });
 
             modelBuilder.Entity("MomEase.core.Entities.Diseases", b =>
@@ -1507,17 +1475,6 @@ namespace MomEase.infra.Migrations
                     b.Navigation("Child");
 
                     b.Navigation("CryReason");
-
-                    b.Navigation("User");
-                });
-
-            modelBuilder.Entity("MomEase.core.Entities.DeviceToken", b =>
-                {
-                    b.HasOne("MomEase.core.Entities.Users", "User")
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
 
                     b.Navigation("User");
                 });

@@ -10,10 +10,10 @@ namespace MomEase.infra.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.RenameColumn(
-                name: "FeedingType",
-                table: "Children",
-                newName: "FeedingTypeForBaby");
+            //migrationBuilder.RenameColumn(
+            //    name: "FeedingType",
+            //    table: "Children",
+            //    newName: "FeedingTypeForBaby");
 
             migrationBuilder.AddColumn<string>(
                 name: "GoogleId",

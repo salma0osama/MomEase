@@ -9,13 +9,16 @@ namespace MomEase.infra.Services
     public class VaccinationService : IVaccinationService
     {
         private readonly IVaccinationRepository _vaccinationRepository;
+        private readonly INotificationService _notificationService; // ⬅️ إضافة
         private readonly ILogger<VaccinationService> _logger;
 
         public VaccinationService(
             IVaccinationRepository vaccinationRepository,
+            INotificationService notificationService, // ⬅️ إضافة
             ILogger<VaccinationService> logger)
         {
             _vaccinationRepository = vaccinationRepository;
+            _notificationService = notificationService; // ⬅️ إضافة
             _logger = logger;
         }
 
@@ -230,6 +233,8 @@ namespace MomEase.infra.Services
             }
         }
 
+        /// ///////////////////////////////////////////////////////////////////////////////////////////
+
         public async Task<List<ChildVaccinationDto>> GetUpcomingVaccinationsAsync(
             int childId, int userId, int daysAhead = 30)
         {
@@ -240,6 +245,21 @@ namespace MomEase.infra.Services
 
                 var upcoming = await _vaccinationRepository
                     .GetUpcomingVaccinationsAsync(childId, daysAhead);
+                var soonVaccinations = upcoming.Where(v =>
+            (v.ScheduledDate - DateTime.Now).TotalDays <= 7
+            && (v.ScheduledDate - DateTime.Now).TotalDays >= 0
+        ).ToList();
+
+                foreach (var vaccination in soonVaccinations)
+                {
+                    await _notificationService.SendRealtimeNotificationAsync(
+                        userId,
+                        "⏰ Vaccination Reminder",
+                        $"{vaccination.Vaccination.Vaccine} is due on {vaccination.ScheduledDate:dd/MM/yyyy}. Don't miss it!",
+                        "VaccinationUpcoming",
+                        vaccination.ChildVaccineId
+                    );
+                }
 
                 return upcoming.Select(cv => MapToChildVaccinationDto(cv)).ToList();
             }
@@ -305,6 +325,15 @@ namespace MomEase.infra.Services
                 vaccination.TakenDate = dto.TakenDate ?? DateTime.Now;
 
                 await _vaccinationRepository.UpdateChildVaccinationAsync(vaccination);
+
+                // 🔔 إرسال Notification عند إكمال التطعيم
+                await _notificationService.SendRealtimeNotificationAsync(
+                    userId,
+                    "✅ Vaccination Completed",
+                    $"{vaccination.Vaccination.Vaccine} has been successfully completed!",
+                    "VaccinationCompleted",
+                    vaccination.ChildVaccineId
+                );
 
                 _logger.LogInformation(
                     "Vaccination {ChildVaccineId} marked as taken for child {ChildId}",
@@ -415,6 +444,33 @@ namespace MomEase.infra.Services
                 TakenDate = cv.TakenDate,
                 Status = cv.Status.ToString()
             };
+        }
+
+        // ✅ 2. Vaccination Missed (فات موعده)
+        private async Task AutoUpdateMissedVaccinationsAsync(int childId, int userId)
+        {
+            var allVaccinations = await _vaccinationRepository.GetChildVaccinationsAsync(childId);
+            var today = DateTime.Now.Date;
+
+            var missedVaccinations = allVaccinations
+                .Where(cv => cv.Status == VaccineStatus.Pending
+                          && cv.ScheduledDate.Date < today)
+                .ToList();
+
+            foreach (var vaccination in missedVaccinations)
+            {
+                vaccination.Status = VaccineStatus.Missed;
+                await _vaccinationRepository.UpdateChildVaccinationAsync(vaccination);
+
+                // 🔔 إرسال Notification للتطعيم الفائت
+                await _notificationService.SendRealtimeNotificationAsync(
+                    userId,
+                    "⚠️ Missed Vaccination",
+                    $"You missed {vaccination.Vaccination.Vaccine} scheduled for {vaccination.ScheduledDate:dd/MM/yyyy}. Please reschedule.",
+                    "VaccinationMissed",
+                    vaccination.ChildVaccineId
+                );
+            }
         }
     }
 }
