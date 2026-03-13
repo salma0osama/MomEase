@@ -23,14 +23,21 @@ namespace MomEase.core.Entities
         [Required]
         public string Body { get; set; }
 
+        [MaxLength(50)]
+        public string Type { get; set; } // ⬅️ إضافة النوع (VaccinationUpcoming, AssessmentResult, etc.)
+
+        public int? RelatedEntityId { get; set; } // ⬅️ إضافة (مثلاً: PostId, VaccinationId)
+
         [MaxLength(500)]
-        public string ActionUrl { get; set; }
+        public string? ActionUrl { get; set; } // ⬅️ nullable
 
         [Required]
         public bool IsRead { get; set; } = false;
 
         [Required]
         public DateTime CreatedAt { get; set; } = DateTime.Now;
+
+        public DateTime? ReadAt { get; set; } // ⬅️ إضافة
 
         // Navigation Property
         [ForeignKey("UserId")]

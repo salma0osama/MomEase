@@ -69,6 +69,7 @@ namespace MomEase.infra.Data
         public DbSet<SavedPosts> SavedPosts { get; set; }
 
         public DbSet<PostMedia> PostMedias { get; set; }
+        public DbSet<DeviceToken> DeviceTokens { get; set; }
         // ============================
         // Fluent API
         // ============================
@@ -347,6 +348,12 @@ namespace MomEase.infra.Data
                     .WithMany(p => p.SavedPosts)
                     .HasForeignKey(e => e.PostId)
                     .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            modelBuilder.Entity<DeviceToken>(entity =>
+            {
+                entity.HasIndex(e => e.Token).IsUnique();
+                entity.HasIndex(e => e.UserId);
             });
         }
     }

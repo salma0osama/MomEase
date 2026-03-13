@@ -2,8 +2,10 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using MomEase.api.Hubs;
 using MomEase.core.Entities;
 using MomEase.core.Interfaces;
+using MomEase.core.Repositories;
 using MomEase.infra.Data;
 using MomEase.infra.Repositories;
 using MomEase.infra.Seeders;
@@ -147,7 +149,7 @@ namespace MomEase
             builder.Services.AddScoped<IVaccinationRepository, VaccinationRepository>();
             builder.Services.AddScoped<IVaccinationService, VaccinationService>();
 
-            
+
             builder.Services.AddScoped<ISkinAnalysisAIService, SkinAnalysisAIService>();
             builder.Services.AddHttpClient();
 
@@ -202,6 +204,34 @@ namespace MomEase
                                       .AllowAnyMethod()
                                       .AllowAnyHeader());
             });
+
+            // ✅ إضافة SignalR
+            builder.Services.AddSignalR();
+
+            // ✅ Register Notification Services
+            builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
+            builder.Services.AddScoped<IPushNotificationService, PushNotificationService>();
+            builder.Services.AddScoped<INotificationService, NotificationService>();
+
+
+            // Device Tokens Repository
+            builder.Services.AddScoped<IDeviceTokenRepository, DeviceTokenRepository>();
+
+
+
+            // ✅ CORS (مهم لـ SignalR)
+            builder.Services.AddCors(options =>
+            {
+                options.AddPolicy("AllowAll", policy =>
+                {
+                    policy.WithOrigins("http://localhost:3000", "http://localhost:4200") // Frontend URLs
+                          .AllowAnyHeader()
+                          .AllowAnyMethod()
+                          .AllowCredentials(); // ⬅️ مهم لـ SignalR
+                });
+            });
+
+
             var app = builder.Build();
             //Assessment Seeder
             using (var scope = app.Services.CreateScope())
@@ -228,6 +258,9 @@ namespace MomEase
 
 
             app.MapControllers();
+
+            // ✅ Map SignalR Hub
+            app.MapHub<NotificationHub>("/notificationHub");
 
             app.Run();
         }
