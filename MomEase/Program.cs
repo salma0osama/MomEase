@@ -135,7 +135,6 @@ namespace MomEase
 
             // Assessment Result Repository & Service
             builder.Services.AddScoped<IAssessmentResultRepository, AssessmentResultRepository>();
-            builder.Services.AddScoped<IAssessmentResultService, AssessmentResultService>();
 
             // User Response Repository & Service
             builder.Services.AddScoped<IUserResponseRepository, UserResponseRepository>();
@@ -155,6 +154,7 @@ namespace MomEase
 
             builder.Services.AddScoped<ICommunityRepository, CommunityRepository>();
             builder.Services.AddScoped<ICommunityService, CommunityService>();
+
 
             builder.Services.AddControllers().AddJsonOptions(options =>
             {
@@ -217,6 +217,15 @@ namespace MomEase
             // Device Tokens Repository
             builder.Services.AddScoped<IDeviceTokenRepository, DeviceTokenRepository>();
 
+            // ✅ Mental Health Follow-up Services
+            builder.Services.AddScoped<IMentalHealthFollowUpRepository, MentalHealthFollowUpRepository>();
+            builder.Services.AddScoped<IMentalHealthTipRepository, MentalHealthTipRepository>();
+            builder.Services.AddScoped<IMentalHealthFollowUpService, MentalHealthFollowUpService>();
+
+            // ✅ Background Service (Auto Scheduler)
+            builder.Services.AddHostedService<MentalHealthFollowUpBackgroundService>();
+
+            builder.Services.AddScoped<IAssessmentResultService, AssessmentResultService>();
 
 
             // ✅ CORS (مهم لـ SignalR)
