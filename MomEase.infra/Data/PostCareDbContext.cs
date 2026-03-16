@@ -70,6 +70,10 @@ namespace MomEase.infra.Data
 
         public DbSet<PostMedia> PostMedias { get; set; }
         public DbSet<DeviceToken> DeviceTokens { get; set; }
+        public DbSet<MentalHealthFollowUp> MentalHealthFollowUps { get; set; }
+        public DbSet<MentalHealthTip> MentalHealthTips { get; set; }
+        public DbSet<SentMentalHealthTip> SentMentalHealthTips { get; set; }
+
         // ============================
         // Fluent API
         // ============================

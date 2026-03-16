@@ -12,6 +12,8 @@ namespace MomEase.infra.Services
         private readonly IQuestionRepository _questionRepo;
         private readonly IAnswerOptionRepository _optionRepo;
         private readonly IScoreLevelRepository _scoreLevelRepo;
+        private readonly INotificationService _notificationService;
+        private readonly IMentalHealthFollowUpService _followUpService;
         private readonly ILogger<AssessmentResultService> _logger;
 
         public AssessmentResultService(
@@ -20,6 +22,8 @@ namespace MomEase.infra.Services
             IQuestionRepository questionRepo,
             IAnswerOptionRepository optionRepo,
             IScoreLevelRepository scoreLevelRepo,
+            INotificationService notificationService,
+            IMentalHealthFollowUpService followUpService,
             ILogger<AssessmentResultService> logger)
         {
             _resultRepo = resultRepo;
@@ -27,6 +31,8 @@ namespace MomEase.infra.Services
             _questionRepo = questionRepo;
             _optionRepo = optionRepo;
             _scoreLevelRepo = scoreLevelRepo;
+            _notificationService = notificationService;
+            _followUpService = followUpService;
             _logger = logger;
         }
 
@@ -96,6 +102,29 @@ namespace MomEase.infra.Services
                     };
 
                     await _responseRepo.CreateAsync(response);
+                }
+
+                // ✅ إرسال Notification حسب النتيجة
+                await SendAssessmentResultNotificationAsync(userId, scoreLevel, totalScore);
+
+                // ✅ إنشاء Follow-up Plan
+                try
+                {
+                    await _followUpService.CreateFollowUpPlanAsync(
+                        userId,
+                        savedResult.ResultId,
+                        scoreLevel.LevelName);
+
+                    _logger.LogInformation(
+                        "✅ Follow-up plan created for user {UserId}",
+                        userId);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex,
+                        "⚠️ Failed to create follow-up plan for user {UserId}, but assessment saved successfully",
+                        userId);
+                    // لا نرمي Exception - الـ Assessment اتحفظ بنجاح
                 }
 
                 _logger.LogInformation("✅ Assessment submitted successfully. ResultId: {ResultId}", savedResult.ResultId);
@@ -191,6 +220,64 @@ namespace MomEase.infra.Services
                 Advice = result.ScoreLevel?.Advice,
                 CompletedAt = result.CompletedAt
             };
+        }
+
+        // ── PRIVATE HELPER: إرسال Notification حسب النتيجة ────────────────
+        private async Task SendAssessmentResultNotificationAsync(
+            int userId,
+            ScoreLevel scoreLevel,
+            int totalScore)
+        {
+            try
+            {
+                string title;
+                string body;
+                string type;
+
+                if (scoreLevel.LevelName.Contains("Severe", StringComparison.OrdinalIgnoreCase))
+                {
+                    title = "🚨 Assessment Result - Severe";
+                    body = $"Your assessment score ({totalScore} points) indicates severe symptoms. Please contact a mental health professional immediately.";
+                    type = "AssessmentResultSevere";
+                }
+                else if (scoreLevel.LevelName.Contains("Moderate", StringComparison.OrdinalIgnoreCase))
+                {
+                    title = "⚠️ Assessment Result - Moderate";
+                    body = $"Your assessment score ({totalScore} points) indicates moderate symptoms. We recommend speaking with a mental health specialist.";
+                    type = "AssessmentResultModerate";
+                }
+                else if (scoreLevel.LevelName.Contains("Mild", StringComparison.OrdinalIgnoreCase))
+                {
+                    title = "ℹ️ Assessment Result - Mild";
+                    body = $"Your assessment score ({totalScore} points) indicates mild symptoms. Take care of yourself and practice self-care.";
+                    type = "AssessmentResultMild";
+                }
+                else // Minimal
+                {
+                    title = "✅ Assessment Result - Normal";
+                    body = $"Your assessment score ({totalScore} points) is within the normal range. Keep taking care of your mental health.";
+                    type = "AssessmentResultNormal";
+                }
+
+                await _notificationService.SendRealtimeNotificationAsync(
+                    userId,
+                    title,
+                    body,
+                    type,
+                    null
+                );
+
+                _logger.LogInformation(
+                    "✅ Assessment result notification sent to user {UserId}",
+                    userId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex,
+                    "❌ Failed to send assessment result notification to user {UserId}",
+                    userId);
+                // لا نرمي Exception - النتيجة اتحفظت بنجاح
+            }
         }
     }
 }

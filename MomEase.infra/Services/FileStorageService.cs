@@ -48,7 +48,7 @@ namespace MomEase.infra.Services
             }
             catch (Exception ex)
             {
-                throw new Exception($"خطأ في رفع الملف: {ex.Message}");
+                throw new Exception($"File upload error: {ex.Message}");
             }
         }
 

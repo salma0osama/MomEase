@@ -85,21 +85,21 @@ namespace MomEase.infra.Services
             catch (Exception ex)
             {
                 _logger.LogError(ex, "❌ Analysis failed");
-                throw new Exception($"فشل تحليل الصورة: {ex.Message}", ex);
+                throw new Exception($"Image analysis failed: {ex.Message}", ex);
             }
         }
 
         private void ValidateImage(IFormFile image)
         {
             if (image == null || image.Length == 0)
-                throw new ArgumentException("الصورة فارغة");
+                throw new ArgumentException("Image is empty");
 
             var ext = Path.GetExtension(image.FileName).ToLowerInvariant();
             if (!new[] { ".jpg", ".jpeg", ".png", ".webp", ".bmp" }.Contains(ext))
-                throw new ArgumentException($"نوع ملف غير مدعوم: {ext}");
+                throw new ArgumentException($"Unsupported file type: {ext}");
 
             if (image.Length > 10 * 1024 * 1024)
-                throw new ArgumentException("حجم الملف كبير جداً (أكثر من 10MB)");
+                throw new ArgumentException("File size is too large (maximum 10MB)");
 
             _logger.LogInformation("✅ Validation passed: {FileName} ({Size} KB)",
                 image.FileName, image.Length / 1024);
@@ -108,7 +108,7 @@ namespace MomEase.infra.Services
         private SkinAnalysisDiseaseName ParseDiseaseNameToEnum(string diseaseName)
         {
             if (string.IsNullOrWhiteSpace(diseaseName))
-                throw new ArgumentException("اسم المرض فارغ");
+                throw new ArgumentException("Disease name is empty");
 
             diseaseName = diseaseName
                 .Trim()
