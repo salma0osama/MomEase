@@ -21,6 +21,8 @@ namespace MomEase
         public static void Main(string[] args)
         {
             var builder = WebApplication.CreateBuilder(args);
+            // Add IHttpContextAccessor for language detection
+            builder.Services.AddHttpContextAccessor();
             // Add DbContext
             builder.Services.AddDbContext<MomEaseDbContext>(options =>
                 options.UseSqlServer(
