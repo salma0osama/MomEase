@@ -67,9 +67,12 @@ namespace MomEase.infra.Repositories
         public async Task<IEnumerable<ArticleCategories>> SearchAsync(string searchTerm)
         {
             return await _context.ArticleCategories
-                .Include(c => c.Articles)
-                .Where(c => c.Name.Contains(searchTerm))  // ← بس في الـ Name
-                .ToListAsync();
+        .Include(c => c.Articles)
+        .Where(c => c.Name.Contains(searchTerm)
+                 || c.NameAr.Contains(searchTerm)         // ⭐ أضيفي
+                 || c.Description.Contains(searchTerm)    // ⭐ أضيفي
+                 || c.DescriptionAr.Contains(searchTerm)) // ⭐ أضيفي
+        .ToListAsync();
         }
         public async Task<bool> NameExistsAsync(string name, int? excludeId = null)
         {

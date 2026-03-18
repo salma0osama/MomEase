@@ -15,6 +15,12 @@ namespace MomEase.core.DTOS.ArticleCategories
 
         [MaxLength(1000)]
         public string? Description { get; set; }
+        // ⭐ Arabic (Optional)
+        [MaxLength(255)]
+        public string? NameAr { get; set; }
+
+        public string? DescriptionAr { get; set; }
+
         [AllowEmptyUrl(ErrorMessage = "Please provide a valid URL or leave it empty")]
         public string? ImageUrl { get; set; }
     }

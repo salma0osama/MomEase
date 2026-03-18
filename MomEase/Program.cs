@@ -2,6 +2,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using MomEase.api.Filters;
 using MomEase.api.Hubs;
 using MomEase.core.Entities;
 using MomEase.core.Interfaces;
@@ -174,6 +175,8 @@ namespace MomEase
             builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddSwaggerGen(c =>
             {
+                c.OperationFilter<SwaggerLanguageHeaderFilter>(); // ← أضف السطر ده
+
                 c.SwaggerDoc("v1", new OpenApiInfo { Title = "MomEase API", Version = "v1" });
 
                 c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme

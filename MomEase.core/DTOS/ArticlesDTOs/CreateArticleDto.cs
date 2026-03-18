@@ -18,6 +18,11 @@ namespace MomEase.core.DTOS.ArticlesDTOs
 
         [Required(ErrorMessage = "Content is required")]
         public string Content { get; set; }
+        // ⭐ Arabic (Optional)
+        [MaxLength(500)]
+        public string? TitleAr { get; set; }
+
+        public string? ContentAr { get; set; }
 
         [Required(ErrorMessage = "Image URL is required")]
         [Url(ErrorMessage = "Invalid image URL")]

@@ -15,6 +15,11 @@ namespace MomEase.core.DTOS.ArticlesDTOs
         public string? Title { get; set; }
 
         public string? Content { get; set; }
+        // ⭐ Arabic (Optional)
+        [MaxLength(500)]
+        public string? TitleAr { get; set; }
+
+        public string? ContentAr { get; set; }
 
         [UrlOrEmpty]
         public string? ImageUrl { get; set; }
