@@ -25,27 +25,43 @@ namespace MomEase.api.Controllers
         #region Public Endpoints
 
         /// <summary>
-        /// GET /api/articles?categoryId={id}
-        /// جلب مقالات فئة معينة
+        /// GET /api/articles
+        /// جلب كل المقالات
         /// </summary>
         [HttpGet]
         [AllowAnonymous]
-        public async Task<IActionResult> GetArticles([FromQuery] int? categoryId)
+        public async Task<IActionResult> GetAllArticles()
         {
             try
             {
                 var userId = GetCurrentUserId();
+                var articles = await _articleService.GetAllAsync(userId);
 
-                // إذا في categoryId نجيب مقالات الفئة، لو مافيش نجيب كل المقالات
-                var articles = categoryId.HasValue
-                    ? await _articleService.GetByCategoryIdAsync(categoryId.Value, userId)
-                    : await _articleService.GetAllAsync(userId);
+                return Ok(new { success = true, data = articles });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { success = false, message = ex.Message });
+            }
+        }
 
-                return Ok(new
-                {
-                    success = true,
-                    data = articles
-                });
+        /// <summary>
+        /// GET /api/articles/category/{categoryId}
+        /// جلب مقالات فئة معينة
+        /// </summary>
+        [HttpGet("category/{categoryId}")]
+        [AllowAnonymous]
+        public async Task<IActionResult> GetArticlesByCategory(int categoryId)
+        {
+            try
+            {
+                if (categoryId <= 0)
+                    return BadRequest(new { success = false, message = "Invalid category ID" });
+
+                var userId = GetCurrentUserId();
+                var articles = await _articleService.GetByCategoryIdAsync(categoryId, userId);
+
+                return Ok(new { success = true, data = articles });
             }
             catch (Exception ex)
             {

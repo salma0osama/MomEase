@@ -1,6 +1,8 @@
-﻿using MomEase.core.DTOS.ArticleCategories;
+﻿using Microsoft.AspNetCore.Http;
+using MomEase.core.DTOS.ArticleCategories;
 using MomEase.core.Entities;
 using MomEase.core.Interfaces;
+using MomEase.infra.Helpers;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -12,10 +14,12 @@ namespace MomEase.infra.Services
     public class ArticleCategoryService : IArticleCategoryService
     {
         private readonly IArticleCategoryRepository _repository;
-
-        public ArticleCategoryService(IArticleCategoryRepository repository)
+        private readonly IHttpContextAccessor _httpContextAccessor;
+        public ArticleCategoryService(IArticleCategoryRepository repository,
+        IHttpContextAccessor httpContextAccessor)
         {
             _repository = repository;
+            _httpContextAccessor = httpContextAccessor;
         }
 
         public async Task<ArticleCategoryDto> CreateAsync(CreateArticleCategoryDto dto)
@@ -47,26 +51,26 @@ namespace MomEase.infra.Services
             var category = await _repository.GetByIdAsync(categoryId);
             if (category == null)
                 throw new Exception("Category not found");
-
+            var lang = GetLang();
             return new ArticleCategoryDto
             {
                 CategoryId = category.CategoryId,
-                Name = category.Name,
-                Description = category.Description,
-                ImageUrl = category.ImageUrl,  // ← أضف ده
+                Name = LanguageHelper.GetLocalized(category.NameAr, category.Name, lang), // ← غيري
+                Description = LanguageHelper.GetLocalized(category.DescriptionAr, category.Description, lang), // ← غيري
+                ImageUrl = category.ImageUrl,
                 ArticlesCount = category.Articles?.Count ?? 0
             };
         }
         public async Task<IEnumerable<ArticleCategoryDto>> GetAllAsync()
         {
             var categories = await _repository.GetAllAsync();
-
+            var lang = GetLang();
             return categories.Select(c => new ArticleCategoryDto
             {
                 CategoryId = c.CategoryId,
-                Name = c.Name,
-                Description = c.Description,
-                ImageUrl = c.ImageUrl,  // ← أضف ده
+                Name = LanguageHelper.GetLocalized(c.NameAr, c.Name, lang), // ← غيري
+                Description = LanguageHelper.GetLocalized(c.DescriptionAr, c.Description, lang), // ← غيري
+                ImageUrl = c.ImageUrl,
                 ArticlesCount = c.Articles?.Count ?? 0
             });
         }
@@ -114,6 +118,10 @@ namespace MomEase.infra.Services
                 throw new Exception($"Cannot delete category with {articlesCount} articles");
 
             return await _repository.DeleteAsync(categoryId);
+        }
+        private string GetLang()
+        {
+            return LanguageHelper.GetLang(_httpContextAccessor);
         }
     }
 }

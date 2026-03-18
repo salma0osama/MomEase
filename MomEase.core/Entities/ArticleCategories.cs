@@ -18,7 +18,11 @@ namespace MomEase.core.Entities
         [Required]
         public string ImageUrl { get; set; }
         public string Description { get; set; }
+        // ⭐ Arabic (Optional - Nullable)
+        [MaxLength(255)]
+        public string? NameAr { get; set; }
 
+        public string? DescriptionAr { get; set; }
         // Navigation Property
         public virtual ICollection<Articles> Articles { get; set; }
     }

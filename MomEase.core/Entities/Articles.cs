@@ -22,6 +22,11 @@ namespace MomEase.core.Entities
 
         [Required]
         public string Content { get; set; }
+        // ⭐ Arabic (Optional - Nullable)
+        [MaxLength(500)]
+        public string? TitleAr { get; set; }
+
+        public string? ContentAr { get; set; }
 
         [MaxLength(500)]
         public string ImageUrl { get; set; }
