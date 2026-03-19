@@ -1,6 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.OpenApi.Models;
-﻿using Microsoft.OpenApi.Models;
 using Swashbuckle.AspNetCore.SwaggerGen;
 
 namespace MomEase.api.Filters
@@ -9,15 +8,6 @@ namespace MomEase.api.Filters
     {
         [AttributeUsage(AttributeTargets.Method)]
         public class LocalizedEndpointAttribute : Attribute { }
-        public void Apply(OpenApiOperation operation, OperationFilterContext context)
-        {
-            var hasLocalizedAttribute = context.MethodInfo
-               .GetCustomAttributes(typeof(LocalizedEndpointAttribute), false)
-               .Any();
-
-            // ⬅️ NEW: Skip if no attribute
-            if (!hasLocalizedAttribute)
-                return;
         public void Apply(OpenApiOperation operation, OperationFilterContext context)
         {
             operation.Parameters ??= new List<OpenApiParameter>();
@@ -41,5 +31,4 @@ namespace MomEase.api.Filters
             });
         }
     }
-}
 }
