@@ -11,6 +11,7 @@ namespace MomEase.core.DTOS.CreateAnswerOptionsDto
     {
         [Required]
         public string OptionText { get; set; }
+        public string? OptionTextAr { get; set; }
 
         [Required]
         public int Score { get; set; }

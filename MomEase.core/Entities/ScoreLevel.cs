@@ -27,7 +27,8 @@ namespace MomEase.core.Entities
         public int MaxScore { get; set; }
 
         public string Advice { get; set; }
-
+        public string? LevelNameAr { get; set; }
+        public string? AdviceAr { get; set; }
         // Navigation Properties
         [ForeignKey("AssessmentId")]
         public virtual Assessment Assessment { get; set; }

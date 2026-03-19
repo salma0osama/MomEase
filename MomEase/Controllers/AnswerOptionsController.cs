@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using MomEase.core.DTOS.CreateAnswerOptionsDto;
 using MomEase.core.Interfaces;
-
+using static MomEase.api.Filters.SwaggerLanguageHeaderFilter;
 namespace MomEase.api.Controllers
 {
     [ApiController]
@@ -19,6 +19,7 @@ namespace MomEase.api.Controllers
 
         // GET /api/questions/{questionId}/options
         [HttpGet]
+        [LocalizedEndpoint]
         public async Task<IActionResult> GetAll(int questionId)
         {
             var result = await _service.GetAllByQuestionAsync(questionId);
@@ -27,6 +28,7 @@ namespace MomEase.api.Controllers
 
         // GET /api/questions/{questionId}/options/{id}
         [HttpGet("{id:int}")]
+        [LocalizedEndpoint]
         public async Task<IActionResult> GetById(int questionId, int id)
         {
             var result = await _service.GetByIdAsync(questionId, id);

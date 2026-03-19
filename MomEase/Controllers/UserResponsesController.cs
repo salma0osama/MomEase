@@ -7,7 +7,7 @@ using MomEase.core.Interfaces;
 using System;
 using System.Security.Claims;
 using System.Threading.Tasks;
-
+using static MomEase.api.Filters.SwaggerLanguageHeaderFilter;
 namespace MomEase.api.Controllers
 {
     [ApiController]
@@ -26,6 +26,7 @@ namespace MomEase.api.Controllers
         /// Get all responses for a specific assessment result
         /// </summary>
         [HttpGet]
+        [LocalizedEndpoint]
         public async Task<IActionResult> GetAllResponses(int resultId)
         {
             try
@@ -74,6 +75,7 @@ namespace MomEase.api.Controllers
         /// Get a specific response by ID
         /// </summary>
         [HttpGet("{id:int}")]
+        [LocalizedEndpoint]
         public async Task<IActionResult> GetResponseById(int resultId, int id)
         {
             try

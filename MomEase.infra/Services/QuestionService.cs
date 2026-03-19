@@ -1,6 +1,8 @@
-﻿using MomEase.core.DTOS.QuestionsDto;
+﻿using Microsoft.AspNetCore.Http;
+using MomEase.core.DTOS.QuestionsDto;
 using MomEase.core.Entities;
 using MomEase.core.Interfaces;
+using MomEase.infra.Helpers;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -12,10 +14,13 @@ namespace MomEase.infra.Services
     public class QuestionService : IQuestionService
     {
         private readonly IQuestionRepository _repo;
-
-        public QuestionService(IQuestionRepository repo)
+        private readonly IHttpContextAccessor _httpContextAccessor;
+        public QuestionService(
+            IQuestionRepository repo,
+            IHttpContextAccessor httpContextAccessor)
         {
             _repo = repo;
+            _httpContextAccessor = httpContextAccessor;
         }
 
         public async Task<IEnumerable<QuestionDto>> GetAllByAssessmentAsync(int assessmentId)
@@ -40,6 +45,7 @@ namespace MomEase.infra.Services
             {
                 AssessmentId = assessmentId,
                 QuestionText = dto.QuestionText,
+                QuestionTextAr = dto.QuestionTextAr,
                 QuestionOrder = dto.QuestionOrder,
                 IsReverse = dto.IsReverse
             };
@@ -55,6 +61,7 @@ namespace MomEase.infra.Services
                 return (null, $"Question {questionId} not found in Assessment {assessmentId}.");
 
             if (dto.QuestionText != null) entity.QuestionText = dto.QuestionText;
+            if (dto.QuestionTextAr != null) entity.QuestionTextAr = dto.QuestionTextAr;
             if (dto.QuestionOrder != null) entity.QuestionOrder = dto.QuestionOrder.Value;
             if (dto.IsReverse != null) entity.IsReverse = dto.IsReverse.Value;
 
@@ -69,13 +76,18 @@ namespace MomEase.infra.Services
 
         // ── MAPPER ────────────────────────────────────────
 
-        private static QuestionDto MapToDto(Question q) => new()
+        private QuestionDto MapToDto(Question q)
         {
-            QuestionId = q.QuestionId,
-            AssessmentId = q.AssessmentId,
-            QuestionText = q.QuestionText,
-            QuestionOrder = q.QuestionOrder,
-            IsReverse = q.IsReverse
-        };
+            var lang = LanguageHelper.GetLang(_httpContextAccessor);
+
+            return new QuestionDto
+            {
+                QuestionId = q.QuestionId,
+                AssessmentId = q.AssessmentId,
+                QuestionText = LanguageHelper.GetLocalized(q.QuestionTextAr, q.QuestionText, lang),
+                QuestionOrder = q.QuestionOrder,
+                IsReverse = q.IsReverse
+            };
+        }
     }
 }

@@ -1,6 +1,8 @@
-﻿using MomEase.core.DTOS.CreateAnswerOptionsDto;
+﻿using Microsoft.AspNetCore.Http;
+using MomEase.core.DTOS.CreateAnswerOptionsDto;
 using MomEase.core.Entities;
 using MomEase.core.Interfaces;
+using MomEase.infra.Helpers;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -12,10 +14,14 @@ namespace MomEase.infra.Services
     public class AnswerOptionService : IAnswerOptionService
     {
         private readonly IAnswerOptionRepository _repo;
+        private readonly IHttpContextAccessor _httpContextAccessor;
 
-        public AnswerOptionService(IAnswerOptionRepository repo)
+        public AnswerOptionService(
+            IAnswerOptionRepository repo,
+            IHttpContextAccessor httpContextAccessor)
         {
             _repo = repo;
+            _httpContextAccessor = httpContextAccessor;
         }
 
         public async Task<IEnumerable<AnswerOptionDto>> GetAllByQuestionAsync(int questionId)
@@ -40,6 +46,7 @@ namespace MomEase.infra.Services
             {
                 QuestionId = questionId,
                 OptionText = dto.OptionText,
+                OptionTextAr = dto.OptionTextAr,
                 Score = dto.Score,
                 OptionOrder = dto.OptionOrder
             };
@@ -55,6 +62,7 @@ namespace MomEase.infra.Services
                 return (null, $"Option {optionId} not found in Question {questionId}.");
 
             if (dto.OptionText != null) entity.OptionText = dto.OptionText;
+            if (dto.OptionTextAr != null) entity.OptionTextAr = dto.OptionTextAr;
             if (dto.Score != null) entity.Score = dto.Score.Value;
             if (dto.OptionOrder != null) entity.OptionOrder = dto.OptionOrder.Value;
 
@@ -69,13 +77,18 @@ namespace MomEase.infra.Services
 
         // ── MAPPER ────────────────────────────────────────
 
-        private static AnswerOptionDto MapToDto(AnswerOption o) => new()
+        private AnswerOptionDto MapToDto(AnswerOption o)
         {
-            OptionId = o.OptionId,
-            QuestionId = o.QuestionId,
-            OptionText = o.OptionText,
-            Score = o.Score,
-            OptionOrder = o.OptionOrder
-        };
+            var lang = LanguageHelper.GetLang(_httpContextAccessor);
+
+            return new AnswerOptionDto
+            {
+                OptionId = o.OptionId,
+                QuestionId = o.QuestionId,
+                OptionText = LanguageHelper.GetLocalized(o.OptionTextAr, o.OptionText, lang),
+                Score = o.Score,
+                OptionOrder = o.OptionOrder
+            };
+        }
     }
 }

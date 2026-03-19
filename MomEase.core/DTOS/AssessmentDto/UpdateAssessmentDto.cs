@@ -14,6 +14,8 @@ namespace MomEase.core.DTOS.AssessmentDto
 
         [MaxLength(1000)]
         public string? Description { get; set; }
+        public string? NameAr { get; set; }
+        public string? DescriptionAr { get; set; }
         [PositiveNumber]
         public int? TotalQuestions { get; set; }
         [PositiveNumber]
