@@ -4,6 +4,7 @@ using MomEase.core.DTOS.AssessmentDto;
 using MomEase.core.Interfaces;
 using System;
 using System.Threading.Tasks;
+using static MomEase.api.Filters.SwaggerLanguageHeaderFilter;
 
 namespace MomEase.api.Controllers
 {
@@ -22,6 +23,7 @@ namespace MomEase.api.Controllers
         /// Get all score levels for an assessment
         /// </summary>
         [HttpGet]
+        [LocalizedEndpoint]
         public async Task<IActionResult> GetAll(int assessmentId)
         {
             try
@@ -48,6 +50,7 @@ namespace MomEase.api.Controllers
         /// Get a specific score level by ID
         /// </summary>
         [HttpGet("{id:int}")]
+        [LocalizedEndpoint]
         public async Task<IActionResult> GetById(int assessmentId, int id)
         {
             try

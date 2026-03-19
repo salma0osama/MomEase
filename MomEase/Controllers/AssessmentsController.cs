@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using MomEase.core.DTOS.AssessmentDto;
 using MomEase.core.Interfaces;
-
+using static MomEase.api.Filters.SwaggerLanguageHeaderFilter;
 namespace MomEase.api.Controllers
 {
     [ApiController]
@@ -19,6 +19,7 @@ namespace MomEase.api.Controllers
 
         // GET /api/assessments
         [HttpGet]
+        [LocalizedEndpoint]
         public async Task<IActionResult> GetAll()
         {
             var result = await _service.GetAllAsync();
@@ -27,6 +28,7 @@ namespace MomEase.api.Controllers
 
         // GET /api/assessments/{id}  → metadata فقط
         [HttpGet("{id:int}")]
+        [LocalizedEndpoint]
         public async Task<IActionResult> GetById(int id)
         {
             var result = await _service.GetByIdAsync(id);

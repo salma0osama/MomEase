@@ -1,6 +1,8 @@
-﻿using MomEase.core.DTOS;
+﻿using Microsoft.AspNetCore.Http;
+using MomEase.core.DTOS;
 using MomEase.core.DTOS.AssessmentDto;
 using MomEase.core.Interfaces;
+using MomEase.infra.Helpers;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -12,17 +14,21 @@ namespace MomEase.infra.Services
     {
         private readonly IUserResponseRepository _repo;
         private readonly IAssessmentResultRepository _resultRepo;
+        private readonly IHttpContextAccessor _httpContextAccessor;
 
         public UserResponseService(
             IUserResponseRepository repo,
-            IAssessmentResultRepository resultRepo)
+            IAssessmentResultRepository resultRepo,
+            IHttpContextAccessor httpContextAccessor)
         {
             _repo = repo;
             _resultRepo = resultRepo;
+            _httpContextAccessor = httpContextAccessor;
         }
 
         public async Task<IEnumerable<UserResponseForAssessmentDto>> GetResponsesByResultIdAsync(int userId, int resultId)
         {
+            var lang = LanguageHelper.GetLang(_httpContextAccessor);
             // Verify ownership
             var result = await _resultRepo.GetByIdAsync(userId, resultId);
             if (result == null)
@@ -34,15 +40,22 @@ namespace MomEase.infra.Services
             {
                 ResponseId = r.ResponseId,
                 QuestionId = r.QuestionId,
-                QuestionText = r.Question?.QuestionText,
+                QuestionText = LanguageHelper.GetLocalized(
+                    r.Question?.QuestionTextAr,
+                    r.Question?.QuestionText,
+                    lang),
                 OptionId = r.OptionId,
-                OptionText = r.AnswerOption?.OptionText,
+                OptionText = LanguageHelper.GetLocalized(
+                    r.AnswerOption?.OptionTextAr,
+                    r.AnswerOption?.OptionText,
+                    lang),
                 Score = r.ComputedScore
             });
         }
 
         public async Task<UserResponseForAssessmentDto?> GetResponseByIdAsync(int userId, int resultId, int responseId)
         {
+            var lang = LanguageHelper.GetLang(_httpContextAccessor);
             // Verify ownership
             var result = await _resultRepo.GetByIdAsync(userId, resultId);
             if (result == null)
@@ -56,9 +69,15 @@ namespace MomEase.infra.Services
             {
                 ResponseId = response.ResponseId,
                 QuestionId = response.QuestionId,
-                QuestionText = response.Question?.QuestionText,
+                QuestionText = LanguageHelper.GetLocalized(
+                    response.Question?.QuestionTextAr,
+                    response.Question?.QuestionText,
+                    lang),
                 OptionId = response.OptionId,
-                OptionText = response.AnswerOption?.OptionText,
+                OptionText = LanguageHelper.GetLocalized(
+                    response.AnswerOption?.OptionTextAr,
+                    response.AnswerOption?.OptionText,
+                    lang),
                 Score = response.ComputedScore
             };
         }

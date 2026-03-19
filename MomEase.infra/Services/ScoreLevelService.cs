@@ -1,6 +1,8 @@
-﻿using MomEase.core.DTOS.AssessmentDto;
+﻿using Microsoft.AspNetCore.Http;
+using MomEase.core.DTOS.AssessmentDto;
 using MomEase.core.Entities;
 using MomEase.core.Interfaces;
+using MomEase.infra.Helpers;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -11,10 +13,13 @@ namespace MomEase.infra.Services
     public class ScoreLevelService : IScoreLevelService
     {
         private readonly IScoreLevelRepository _repo;
+        private readonly IHttpContextAccessor _httpContextAccessor;
 
-        public ScoreLevelService(IScoreLevelRepository repo)
+        public ScoreLevelService(IScoreLevelRepository repo,
+    IHttpContextAccessor httpContextAccessor)
         {
             _repo = repo;
+            _httpContextAccessor = httpContextAccessor;
         }
 
         public async Task<IEnumerable<ScoreLevelDto>> GetAllByAssessmentAsync(int assessmentId)
@@ -69,14 +74,19 @@ namespace MomEase.infra.Services
         }
 
         // ── MAPPER ────────────────────────────────────────
-        private static ScoreLevelDto MapToDto(ScoreLevel sl) => new()
+        private ScoreLevelDto MapToDto(ScoreLevel sl)
         {
-            LevelId = sl.LevelId,
-            AssessmentId = sl.AssessmentId,
-            MinScore = sl.MinScore,
-            MaxScore = sl.MaxScore,
-            LevelName = sl.LevelName,
-            Advice = sl.Advice
-        };
+            var lang = LanguageHelper.GetLang(_httpContextAccessor);
+
+            return new ScoreLevelDto
+            {
+                LevelId = sl.LevelId,
+                AssessmentId = sl.AssessmentId,
+                MinScore = sl.MinScore,
+                MaxScore = sl.MaxScore,
+                LevelName = LanguageHelper.GetLocalized(sl.LevelNameAr, sl.LevelName, lang),
+                Advice = LanguageHelper.GetLocalized(sl.AdviceAr, sl.Advice, lang)
+            };
+        }
     }
 }

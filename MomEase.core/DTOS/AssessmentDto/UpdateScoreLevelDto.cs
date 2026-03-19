@@ -19,5 +19,7 @@ namespace MomEase.core.DTOS.AssessmentDto
         public string? LevelName { get; set; }
 
         public string? Advice { get; set; }
+        public string? LevelNameAr { get; set; }
+        public string? AdviceAr { get; set; }
     }
 }

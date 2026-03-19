@@ -19,7 +19,8 @@ namespace MomEase.core.Entities
 
         [MaxLength(1000)]
         public string Description { get; set; }
-
+        public string? NameAr { get; set; }
+        public string? DescriptionAr { get; set; }
         [Required]
         public int TotalQuestions { get; set; }
 

@@ -2,6 +2,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using MomEase.api.Filters;
 using MomEase.api.Hubs;
 using MomEase.core.Entities;
 using MomEase.core.Interfaces;
@@ -187,18 +188,19 @@ namespace MomEase
 
                 c.AddSecurityRequirement(new OpenApiSecurityRequirement {
                     {
-            new OpenApiSecurityScheme
-              {
-                Reference = new OpenApiReference
-                {
-                    Type = ReferenceType.SecurityScheme,
-                    Id = "Bearer"
-                }
-             },
-            new string[] {}
-             }
-             });
+                         new OpenApiSecurityScheme{
+                            Reference = new OpenApiReference
+                            {
+                                 Type = ReferenceType.SecurityScheme,
+                                    Id = "Bearer"
+                              }
+                         },
+                      new string[] {}
+                       }
+                       });
+                c.OperationFilter<SwaggerLanguageHeaderFilter>();
             });
+
             builder.Services.AddCors(options =>
             {
                 options.AddPolicy("AllowAll",

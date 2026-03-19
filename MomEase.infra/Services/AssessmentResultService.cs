@@ -1,7 +1,9 @@
-﻿using Microsoft.Extensions.Logging;
+﻿using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging;
 using MomEase.core.DTOS.AssessmentDto;
 using MomEase.core.Entities;
 using MomEase.core.Interfaces;
+using MomEase.infra.Helpers;
 
 namespace MomEase.infra.Services
 {
@@ -14,6 +16,7 @@ namespace MomEase.infra.Services
         private readonly IScoreLevelRepository _scoreLevelRepo;
         private readonly INotificationService _notificationService;
         private readonly IMentalHealthFollowUpService _followUpService;
+        private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly ILogger<AssessmentResultService> _logger;
 
         public AssessmentResultService(
@@ -24,6 +27,7 @@ namespace MomEase.infra.Services
             IScoreLevelRepository scoreLevelRepo,
             INotificationService notificationService,
             IMentalHealthFollowUpService followUpService,
+            IHttpContextAccessor httpContextAccessor,
             ILogger<AssessmentResultService> logger)
         {
             _resultRepo = resultRepo;
@@ -33,6 +37,7 @@ namespace MomEase.infra.Services
             _scoreLevelRepo = scoreLevelRepo;
             _notificationService = notificationService;
             _followUpService = followUpService;
+            _httpContextAccessor = httpContextAccessor;
             _logger = logger;
         }
 
@@ -148,20 +153,29 @@ namespace MomEase.infra.Services
 
         public async Task<IEnumerable<AssessmentResultDto>> GetUserResultsAsync(int userId)
         {
+            var lang = LanguageHelper.GetLang(_httpContextAccessor);
             var results = await _resultRepo.GetByUserIdAsync(userId);
+
             return results.Select(r => new AssessmentResultDto
             {
                 ResultId = r.ResultId,
                 AssessmentId = r.AssessmentId,
                 TotalScore = r.TotalScore,
-                LevelName = r.ScoreLevel?.LevelName,
-                Advice = r.ScoreLevel?.Advice,
+                LevelName = LanguageHelper.GetLocalized(
+                    r.ScoreLevel?.LevelNameAr,
+                    r.ScoreLevel?.LevelName,
+                    lang),
+                Advice = LanguageHelper.GetLocalized(
+                    r.ScoreLevel?.AdviceAr,
+                    r.ScoreLevel?.Advice,
+                    lang),
                 CompletedAt = r.CompletedAt
             });
         }
 
         public async Task<AssessmentResultDto?> GetResultByIdAsync(int userId, int resultId)
         {
+            var lang = LanguageHelper.GetLang(_httpContextAccessor);
             var result = await _resultRepo.GetByIdAsync(userId, resultId);
             if (result == null) return null;
 
@@ -170,14 +184,21 @@ namespace MomEase.infra.Services
                 ResultId = result.ResultId,
                 AssessmentId = result.AssessmentId,
                 TotalScore = result.TotalScore,
-                LevelName = result.ScoreLevel?.LevelName,
-                Advice = result.ScoreLevel?.Advice,
+                LevelName = LanguageHelper.GetLocalized(
+                    result.ScoreLevel?.LevelNameAr,
+                    result.ScoreLevel?.LevelName,
+                    lang),
+                Advice = LanguageHelper.GetLocalized(
+                    result.ScoreLevel?.AdviceAr,
+                    result.ScoreLevel?.Advice,
+                    lang),
                 CompletedAt = result.CompletedAt
             };
         }
 
         public async Task<AssessmentResultDetailsDto?> GetResultDetailsAsync(int userId, int resultId)
         {
+            var lang = LanguageHelper.GetLang(_httpContextAccessor);
             var result = await _resultRepo.GetByIdWithResponsesAsync(userId, resultId);
             if (result == null) return null;
 
@@ -186,16 +207,28 @@ namespace MomEase.infra.Services
                 ResultId = result.ResultId,
                 AssessmentId = result.AssessmentId,
                 TotalScore = result.TotalScore,
-                LevelName = result.ScoreLevel?.LevelName,
-                Advice = result.ScoreLevel?.Advice,
+                LevelName = LanguageHelper.GetLocalized(
+                    result.ScoreLevel?.LevelNameAr,
+                    result.ScoreLevel?.LevelName,
+                    lang),
+                Advice = LanguageHelper.GetLocalized(
+                    result.ScoreLevel?.AdviceAr,
+                    result.ScoreLevel?.Advice,
+                    lang),
                 CompletedAt = result.CompletedAt,
                 Responses = result.UserResponses?.Select(r => new UserResponseForAssessmentDto
                 {
                     ResponseId = r.ResponseId,
                     QuestionId = r.QuestionId,
-                    QuestionText = r.Question?.QuestionText,
+                    QuestionText = LanguageHelper.GetLocalized(
+                        r.Question?.QuestionTextAr,
+                        r.Question?.QuestionText,
+                        lang),
                     OptionId = r.OptionId,
-                    OptionText = r.AnswerOption?.OptionText,
+                    OptionText = LanguageHelper.GetLocalized(
+                        r.AnswerOption?.OptionTextAr,
+                        r.AnswerOption?.OptionText,
+                        lang),
                     Score = r.ComputedScore
                 }).ToList()
             };
@@ -208,6 +241,7 @@ namespace MomEase.infra.Services
 
         public async Task<AssessmentResultDto?> GetLatestResultAsync(int userId)
         {
+            var lang = LanguageHelper.GetLang(_httpContextAccessor);
             var result = await _resultRepo.GetLatestByUserIdAsync(userId);
             if (result == null) return null;
 
@@ -216,8 +250,14 @@ namespace MomEase.infra.Services
                 ResultId = result.ResultId,
                 AssessmentId = result.AssessmentId,
                 TotalScore = result.TotalScore,
-                LevelName = result.ScoreLevel?.LevelName,
-                Advice = result.ScoreLevel?.Advice,
+                LevelName = LanguageHelper.GetLocalized(
+                    result.ScoreLevel?.LevelNameAr,
+                    result.ScoreLevel?.LevelName,
+                    lang),
+                Advice = LanguageHelper.GetLocalized(
+                    result.ScoreLevel?.AdviceAr,
+                    result.ScoreLevel?.Advice,
+                    lang),
                 CompletedAt = result.CompletedAt
             };
         }

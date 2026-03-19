@@ -18,7 +18,7 @@ namespace MomEase.core.Entities
 
         [Required]
         public string QuestionText { get; set; }
-
+        public string? QuestionTextAr { get; set; }
         [Required]
         public int QuestionOrder { get; set; }
 

@@ -12,6 +12,8 @@ namespace MomEase.core.DTOS.QuestionsDto
     {
         [Required]
         public string QuestionText { get; set; }
+        public string? QuestionTextAr { get; set; }
+
 
         [Required]
         [PositiveNumber]
