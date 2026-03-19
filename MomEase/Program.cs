@@ -175,6 +175,8 @@ namespace MomEase
             builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddSwaggerGen(c =>
             {
+                c.OperationFilter<SwaggerLanguageHeaderFilter>(); // ← أضف السطر ده
+
                 c.SwaggerDoc("v1", new OpenApiInfo { Title = "MomEase API", Version = "v1" });
 
                 c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme

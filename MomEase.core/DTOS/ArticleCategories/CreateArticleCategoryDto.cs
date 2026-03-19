@@ -15,6 +15,11 @@ namespace MomEase.core.DTOS.ArticleCategories
 
         [MaxLength(1000, ErrorMessage = "Description cannot exceed 1000 characters")]
         public string Description { get; set; }
+        // ⭐ Arabic (Optional)
+        [MaxLength(255)]
+        public string? NameAr { get; set; }
+
+        public string? DescriptionAr { get; set; }
         [Required(ErrorMessage = "Category image is required")]
         [Url(ErrorMessage = "Invalid image URL")]
         public string ImageUrl { get; set; }

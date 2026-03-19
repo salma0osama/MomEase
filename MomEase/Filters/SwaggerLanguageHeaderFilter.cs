@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.OpenApi.Models;
+﻿using Microsoft.OpenApi.Models;
 using Swashbuckle.AspNetCore.SwaggerGen;
 
 namespace MomEase.api.Filters
@@ -17,6 +18,8 @@ namespace MomEase.api.Filters
             // ⬅️ NEW: Skip if no attribute
             if (!hasLocalizedAttribute)
                 return;
+        public void Apply(OpenApiOperation operation, OperationFilterContext context)
+        {
             operation.Parameters ??= new List<OpenApiParameter>();
 
             operation.Parameters.Add(new OpenApiParameter
@@ -38,4 +41,5 @@ namespace MomEase.api.Filters
             });
         }
     }
+}
 }

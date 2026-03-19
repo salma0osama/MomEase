@@ -1,6 +1,8 @@
-﻿using MomEase.core.DTOS.ArticlesDTOs;
+﻿using Microsoft.AspNetCore.Http;
+using MomEase.core.DTOS.ArticlesDTOs;
 using MomEase.core.Entities;
 using MomEase.core.Interfaces;
+using MomEase.infra.Helpers;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -14,15 +16,18 @@ namespace MomEase.infra.Services
         private readonly IArticleRepository _articleRepo;
         private readonly IArticleCategoryRepository _categoryRepo;
         private readonly ISavedArticleRepository _savedArticleRepo;
+        private readonly IHttpContextAccessor _httpContextAccessor;
 
         public ArticleService(
             IArticleRepository articleRepo,
             IArticleCategoryRepository categoryRepo,
-            ISavedArticleRepository savedArticleRepo)
+            ISavedArticleRepository savedArticleRepo,
+            IHttpContextAccessor httpContextAccessor)  // ⭐ إضافة
         {
             _articleRepo = articleRepo;
             _categoryRepo = categoryRepo;
             _savedArticleRepo = savedArticleRepo;
+            _httpContextAccessor = httpContextAccessor;  // ⭐ إضافة
         }
 
         public async Task<ArticleDto> CreateAsync(CreateArticleDto dto)
@@ -36,28 +41,17 @@ namespace MomEase.infra.Services
                 CategoryId = dto.CategoryId,
                 Title = dto.Title,
                 Content = dto.Content,
+                TitleAr = dto.TitleAr,        // ⭐ جديد
+                ContentAr = dto.ContentAr,    // ⭐ جديد
                 ImageUrl = dto.ImageUrl,
                 SourceUrl = dto.SourceUrl,
                 SourceName = dto.SourceName
             };
 
             var created = await _articleRepo.CreateAsync(article);
-            var category = await _categoryRepo.GetByIdAsync(dto.CategoryId);
 
-            return new ArticleDto
-            {
-                ArticleId = created.ArticleId,
-                Title = created.Title,
-                Content = created.Content,
-                ImageUrl = created.ImageUrl,
-                CategoryName = category.Name,
-                CategoryId = created.CategoryId,
-                ReadingTimeMinutes = CalculateReadingTime(created.Content),
-                PublishedDate = created.PublishedDate,
-                SourceUrl = created.SourceUrl,
-                SourceName = created.SourceName,
-                IsSaved = false
-            };
+            // Return with localization
+            return await GetByIdAsync(created.ArticleId);
         }
 
         public async Task<ArticleDto> GetByIdAsync(int articleId, int? userId = null)
@@ -72,16 +66,35 @@ namespace MomEase.infra.Services
                 isSaved = await _savedArticleRepo.ExistsAsync(userId.Value, articleId);
             }
 
+            // ⭐ Get language from request
+            var lang = GetLang();
+
+            // ⭐ Use localized content
+            var localizedTitle = LanguageHelper.GetLocalized(
+                article.TitleAr,
+                article.Title,
+                lang);
+
+            var localizedContent = LanguageHelper.GetLocalized(
+                article.ContentAr,
+                article.Content,
+                lang);
+
+            var localizedCategoryName = LanguageHelper.GetLocalized(
+                article.Category?.NameAr,
+                article.Category?.Name,
+                lang);
+
             return new ArticleDto
             {
                 ArticleId = article.ArticleId,
-                Title = article.Title,
-                Content = article.Content,
+                Title = localizedTitle,         // ⭐ محلّي
+                Content = localizedContent,     // ⭐ محلّي
                 ImageUrl = article.ImageUrl,
-                CategoryName = article.Category?.Name,
+                CategoryName = localizedCategoryName,  // ⭐ محلّي
                 CategoryId = article.CategoryId,
-                ReadingTimeMinutes = CalculateReadingTime(article.Content),
-                PublishedDate = article.PublishedDate,
+                ReadingTimeMinutes = CalculateReadingTime(localizedContent),
+                PublishedDate = article.PublishedDate ?? DateTime.Now,
                 SourceUrl = article.SourceUrl,
                 SourceName = article.SourceName,
                 IsSaved = isSaved
@@ -113,6 +126,9 @@ namespace MomEase.infra.Services
                     Categories = new List<CategoryResultDto>()
                 };
 
+            // ⭐ Get language
+            var lang = GetLang();
+
             // 1️⃣ البحث في المقالات
             var articles = await _articleRepo.SearchAsync(searchTerm);
             var articleDtos = await MapToListDto(articles, userId);
@@ -122,13 +138,12 @@ namespace MomEase.infra.Services
             var categoryDtos = categories.Select(c => new CategoryResultDto
             {
                 CategoryId = c.CategoryId,
-                Name = c.Name,
-                Description = c.Description,
+                Name = LanguageHelper.GetLocalized(c.NameAr, c.Name, lang),  // ⭐ محلّي
+                Description = LanguageHelper.GetLocalized(c.DescriptionAr, c.Description, lang),  // ⭐ محلّي
                 ImageUrl = c.ImageUrl,
                 ArticlesCount = c.Articles?.Count ?? 0
             });
 
-            // 3️⃣ إرجاع النتيجة الشاملة
             return new SearchResultDto
             {
                 Articles = articleDtos,
@@ -150,12 +165,21 @@ namespace MomEase.infra.Services
                 article.CategoryId = dto.CategoryId.Value;
             }
 
+            // Update English
             if (!string.IsNullOrWhiteSpace(dto.Title))
                 article.Title = dto.Title;
 
             if (!string.IsNullOrWhiteSpace(dto.Content))
                 article.Content = dto.Content;
 
+            // ⭐ Update Arabic
+            if (dto.TitleAr != null)
+                article.TitleAr = dto.TitleAr;
+
+            if (dto.ContentAr != null)
+                article.ContentAr = dto.ContentAr;
+
+            // Update common fields
             if (!string.IsNullOrWhiteSpace(dto.ImageUrl))
                 article.ImageUrl = dto.ImageUrl;
 
@@ -179,10 +203,11 @@ namespace MomEase.infra.Services
             return await _articleRepo.DeleteAsync(articleId);
         }
 
-        // Helper Methods
+        // ⭐ Helper Methods
         private async Task<IEnumerable<ArticleListDto>> MapToListDto(IEnumerable<Articles> articles, int? userId)
         {
             var result = new List<ArticleListDto>();
+            var lang = GetLang();  // ⭐ Get language once
 
             foreach (var article in articles)
             {
@@ -192,20 +217,44 @@ namespace MomEase.infra.Services
                     isSaved = await _savedArticleRepo.ExistsAsync(userId.Value, article.ArticleId);
                 }
 
+                // ⭐ Localize content
+                var localizedTitle = LanguageHelper.GetLocalized(
+                    article.TitleAr,
+                    article.Title,
+                    lang);
+
+                var localizedContent = LanguageHelper.GetLocalized(
+                    article.ContentAr,
+                    article.Content,
+                    lang);
+
+                var localizedCategoryName = LanguageHelper.GetLocalized(
+                    article.Category?.NameAr,
+                    article.Category?.Name,
+                    lang);
+
                 result.Add(new ArticleListDto
                 {
                     ArticleId = article.ArticleId,
-                    Title = article.Title,
+                    Title = localizedTitle,  // ⭐ محلّي
                     ImageUrl = article.ImageUrl,
-                    ShortDescription = GetShortDescription(article.Content),
-                    CategoryName = article.Category?.Name,
+                    ShortDescription = GetShortDescription(localizedContent),  // ⭐ من المحتوى المحلّي
+                    CategoryName = localizedCategoryName,  // ⭐ محلّي
                     CategoryId = article.CategoryId,
-                    ReadingTimeMinutes = CalculateReadingTime(article.Content),
+                    ReadingTimeMinutes = CalculateReadingTime(localizedContent),  // ⭐ من المحتوى المحلّي
                     IsSaved = isSaved
                 });
             }
 
             return result;
+        }
+
+        /// <summary>
+        /// ⭐ Get current language from HTTP request
+        /// </summary>
+        private string GetLang()
+        {
+            return LanguageHelper.GetLang(_httpContextAccessor);
         }
 
         private string GetShortDescription(string content)
@@ -225,7 +274,7 @@ namespace MomEase.infra.Services
 
             int wordCount = content.Split(new[] { ' ', '\n', '\r' },
                 StringSplitOptions.RemoveEmptyEntries).Length;
-            return (int)Math.Ceiling(wordCount / 200.0); // 200 words per minute
+            return (int)Math.Ceiling(wordCount / 200.0);
         }
     }
 }
