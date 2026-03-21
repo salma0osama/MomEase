@@ -18,10 +18,10 @@ namespace MomEase.infra.Services
 
         public MentalHealthFollowUpBackgroundService(
             IServiceProvider serviceProvider,
-            ILogger<MentalHealthFollowUpBackgroundService> _logger)
+            ILogger<MentalHealthFollowUpBackgroundService> logger)
         {
             _serviceProvider = serviceProvider;
-            this._logger = _logger;
+            _logger = logger;
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)

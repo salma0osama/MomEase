@@ -14,17 +14,20 @@ namespace MomEase.infra.Services
         private readonly IMentalHealthFollowUpRepository _followUpRepo;
         private readonly IMentalHealthTipRepository _tipRepo;
         private readonly INotificationService _notificationService;
+        private readonly IUserRepository _userRepo;
         private readonly ILogger<MentalHealthFollowUpService> _logger;
 
         public MentalHealthFollowUpService(
             IMentalHealthFollowUpRepository followUpRepo,
             IMentalHealthTipRepository tipRepo,
             INotificationService notificationService,
+            IUserRepository userRepo,
             ILogger<MentalHealthFollowUpService> logger)
         {
             _followUpRepo = followUpRepo;
             _tipRepo = tipRepo;
             _notificationService = notificationService;
+            _userRepo = userRepo;
             _logger = logger;
         }
 
@@ -91,23 +94,32 @@ namespace MomEase.infra.Services
                             "📬 Sending assessment reminder to user {UserId}",
                             followUp.UserId);
 
-                        var message = GetAssessmentReminderMessage(followUp.SeverityLevel);
+                        // ⬅️ جيب الـ User عشان تعرف لغته
+                        var user = await _userRepo.GetByIdAsync(followUp.UserId);
+                        var userLang = user?.PreferredLanguage ?? "en";
+
+                        // اختار الـ Title حسب اللغة
+                        var title = userLang.StartsWith("ar")
+                            ? "🧠 وقت تقييم صحتك النفسية"
+                            : "🧠 Mental Health Check-in Time";
+
+                        // اختار الـ Message حسب اللغة
+                        var message = GetAssessmentReminderMessage(followUp.SeverityLevel, userLang);
 
                         await _notificationService.SendRealtimeNotificationAsync(
                             followUp.UserId,
-                            "🧠 وقت تقييم صحتك النفسية",
+                            title,
                             message,
                             "MentalHealthAssessmentReminder",
                             followUp.LastAssessmentResultId
                         );
 
-                        // علّم إن الـ Reminder اتبعت
                         followUp.AssessmentReminderSent = true;
                         await _followUpRepo.UpdateAsync(followUp);
 
                         _logger.LogInformation(
-                            "✅ Assessment reminder sent to user {UserId}",
-                            followUp.UserId);
+                            "✅ Assessment reminder sent to user {UserId} in {Language}",
+                            followUp.UserId, userLang);
                     }
                     catch (Exception ex)
                     {
@@ -137,17 +149,30 @@ namespace MomEase.infra.Services
                             "💡 Sending mental health tip to user {UserId}",
                             followUp.UserId);
 
-                        // جيب tip عشوائي
                         var tip = await _tipRepo.GetRandomTipAsync(
                             followUp.UserId,
                             followUp.SeverityLevel);
 
                         if (tip != null)
                         {
+                            // ⬅️ جيب الـ User عشان تعرف لغته
+                            var user = await _userRepo.GetByIdAsync(followUp.UserId);
+                            var userLang = user?.PreferredLanguage ?? "en";
+
+                            // اختار الـ Tip Text حسب اللغة
+                            var tipText = userLang.StartsWith("ar") && !string.IsNullOrEmpty(tip.TipTextAr)
+                                ? tip.TipTextAr
+                                : tip.TipTextEnglish;
+
+                            // اختار الـ Title حسب اللغة
+                            var title = userLang.StartsWith("ar")
+                                ? "💚 نصيحة للصحة النفسية"
+                                : "💚 Mental Health Tip";
+
                             await _notificationService.SendRealtimeNotificationAsync(
                                 followUp.UserId,
-                                "💚 Mental Health Tip",
-                                tip.TipTextArabic,
+                                title,
+                                tipText,
                                 "MentalHealthTip",
                                 tip.TipId
                             );
@@ -155,8 +180,8 @@ namespace MomEase.infra.Services
                             await _tipRepo.MarkTipAsSentAsync(followUp.UserId, tip.TipId);
 
                             _logger.LogInformation(
-                                "✅ Tip {TipId} sent to user {UserId}",
-                                tip.TipId, followUp.UserId);
+                                "✅ Tip {TipId} sent to user {UserId} in {Language}",
+                                tip.TipId, followUp.UserId, userLang);
                         }
 
                         var (_, tipInterval) = GetIntervals(followUp.SeverityLevel);
@@ -190,15 +215,28 @@ namespace MomEase.infra.Services
             };
         }
 
-        private string GetAssessmentReminderMessage(string severityLevel)
+        private string GetAssessmentReminderMessage(string severityLevel, string language)
         {
-            return severityLevel switch
+            if (language.StartsWith("ar"))
             {
-                "Severe" => "It's time to re-assess your mental health. Regular monitoring is very important. Please complete the assessment now.",
-                "Moderate" => "A week has passed since your last assessment. We'd like to check on your mental health. Please complete the assessment.",
-                "Mild" => "It's time for your regular mental health check-up. Help us track your progress by completing the assessment.",
-                _ => "We hope you're doing well. It's time for your monthly mental health assessment."
-            };
+                return severityLevel switch
+                {
+                    "Severe" => "حان وقت إعادة تقييم صحتك النفسية. المتابعة المنتظمة مهمة جداً. يرجى إكمال التقييم الآن.",
+                    "Moderate" => "مضى أسبوع على آخر تقييم. نود التحقق من صحتك النفسية. يرجى إكمال التقييم.",
+                    "Mild" => "حان وقت الفحص الدوري للصحة النفسية. ساعدينا في تتبع تقدمك بإكمال التقييم.",
+                    _ => "نأمل أن تكوني بخير. حان وقت تقييمك الشهري للصحة النفسية."
+                };
+            }
+            else
+            {
+                return severityLevel switch
+                {
+                    "Severe" => "It's time to re-assess your mental health. Regular monitoring is very important. Please complete the assessment now.",
+                    "Moderate" => "A week has passed since your last assessment. We'd like to check on your mental health. Please complete the assessment.",
+                    "Mild" => "It's time for your regular mental health check-up. Help us track your progress by completing the assessment.",
+                    _ => "We hope you're doing well. It's time for your monthly mental health assessment."
+                };
+            }
         }
     }
 }
