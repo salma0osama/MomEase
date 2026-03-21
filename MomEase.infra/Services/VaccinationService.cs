@@ -1,28 +1,31 @@
-﻿using Microsoft.Extensions.Logging;
+﻿using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging;
 using MomEase.core.DTOS.VaccinationDTO;
 using MomEase.core.Entities;
 using MomEase.core.Enums;
 using MomEase.core.Interfaces;
+using MomEase.infra.Helpers;
 
 namespace MomEase.infra.Services
 {
     public class VaccinationService : IVaccinationService
     {
         private readonly IVaccinationRepository _vaccinationRepository;
-        private readonly INotificationService _notificationService; // ⬅️ إضافة
+        private readonly INotificationService _notificationService;
+        private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly ILogger<VaccinationService> _logger;
 
         public VaccinationService(
             IVaccinationRepository vaccinationRepository,
-            INotificationService notificationService, // ⬅️ إضافة
+            INotificationService notificationService,
+            IHttpContextAccessor httpContextAccessor,
             ILogger<VaccinationService> logger)
         {
             _vaccinationRepository = vaccinationRepository;
-            _notificationService = notificationService; // ⬅️ إضافة
+            _notificationService = notificationService;
+            _httpContextAccessor = httpContextAccessor;
             _logger = logger;
         }
-
-        // ===== VaccinationsController Methods =====
 
         public async Task<List<VaccinationScheduleDto>> GetAllVaccinationsAsync()
         {
@@ -68,31 +71,25 @@ namespace MomEase.infra.Services
             }
         }
 
-        // ===== ChildVaccinationController Methods =====
-
         public async Task<ChildVaccinationDto> AddChildVaccinationAsync(
             int childId, int userId, int scheduleId)
         {
             try
             {
-                // Validate ownership عن طريق ChildVaccinations
                 await ValidateChildOwnershipAsync(childId, userId);
 
                 var vaccination = await _vaccinationRepository.GetVaccinationByIdAsync(scheduleId);
                 if (vaccination == null)
                     throw new KeyNotFoundException("Vaccination schedule not found");
 
-                // جيب أي record عشان نعرف الـ birthDate
                 var existingVaccinations = await _vaccinationRepository
                     .GetChildVaccinationsAsync(childId);
 
                 if (!existingVaccinations.Any())
                     throw new KeyNotFoundException("Child has no vaccination records");
 
-                // نحسب الـ scheduledDate من أول record موجود
                 var firstRecord = existingVaccinations.OrderBy(v => v.ScheduledDate).First();
-                var birthDate = firstRecord.ScheduledDate.AddMonths(
-                    -firstRecord.Vaccination.Age);
+                var birthDate = firstRecord.ScheduledDate.AddMonths(-firstRecord.Vaccination.Age);
 
                 var childVaccination = new ChildVaccination
                 {
@@ -104,9 +101,6 @@ namespace MomEase.infra.Services
 
                 var result = await _vaccinationRepository
                     .AddSingleChildVaccinationAsync(childVaccination);
-
-                _logger.LogInformation(
-                    "Vaccination {ScheduleId} added to child {ChildId}", scheduleId, childId);
 
                 var added = await _vaccinationRepository
                     .GetChildVaccinationByIdAsync(result.ChildVaccineId, childId);
@@ -194,10 +188,6 @@ namespace MomEase.infra.Services
 
                 await _vaccinationRepository.UpdateChildVaccinationAsync(vaccination);
 
-                _logger.LogInformation(
-                    "Vaccination {ChildVaccineId} status updated to {Status}",
-                    childVaccineId, newStatus);
-
                 return MapToChildVaccinationDto(vaccination);
             }
             catch (Exception ex)
@@ -221,10 +211,6 @@ namespace MomEase.infra.Services
                     throw new KeyNotFoundException("Vaccination record not found");
 
                 await _vaccinationRepository.DeleteChildVaccinationAsync(vaccination);
-
-                _logger.LogInformation(
-                    "Vaccination {ChildVaccineId} deleted for child {ChildId}",
-                    childVaccineId, childId);
             }
             catch (Exception ex)
             {
@@ -232,8 +218,6 @@ namespace MomEase.infra.Services
                 throw;
             }
         }
-
-        /// ///////////////////////////////////////////////////////////////////////////////////////////
 
         public async Task<List<ChildVaccinationDto>> GetUpcomingVaccinationsAsync(
             int childId, int userId, int daysAhead = 30)
@@ -245,20 +229,20 @@ namespace MomEase.infra.Services
 
                 var upcoming = await _vaccinationRepository
                     .GetUpcomingVaccinationsAsync(childId, daysAhead);
+
                 var soonVaccinations = upcoming.Where(v =>
-            (v.ScheduledDate - DateTime.Now).TotalDays <= 7
-            && (v.ScheduledDate - DateTime.Now).TotalDays >= 0
-        ).ToList();
+                    (v.ScheduledDate - DateTime.Now).TotalDays <= 7
+                    && (v.ScheduledDate - DateTime.Now).TotalDays >= 0)
+                    .ToList();
 
                 foreach (var vaccination in soonVaccinations)
                 {
                     await _notificationService.SendRealtimeNotificationAsync(
                         userId,
-                        "⏰ Vaccination Reminder",
-                        $"{vaccination.Vaccination.Vaccine} is due on {vaccination.ScheduledDate:dd/MM/yyyy}. Don't miss it!",
+                        "Vaccination Reminder",
+                        $"{vaccination.Vaccination.Vaccine} is due on {vaccination.ScheduledDate:dd/MM/yyyy}",
                         "VaccinationUpcoming",
-                        vaccination.ChildVaccineId
-                    );
+                        vaccination.ChildVaccineId);
                 }
 
                 return upcoming.Select(cv => MapToChildVaccinationDto(cv)).ToList();
@@ -326,18 +310,12 @@ namespace MomEase.infra.Services
 
                 await _vaccinationRepository.UpdateChildVaccinationAsync(vaccination);
 
-                // 🔔 إرسال Notification عند إكمال التطعيم
                 await _notificationService.SendRealtimeNotificationAsync(
                     userId,
-                    "✅ Vaccination Completed",
+                    "Vaccination Completed",
                     $"{vaccination.Vaccination.Vaccine} has been successfully completed!",
                     "VaccinationCompleted",
-                    vaccination.ChildVaccineId
-                );
-
-                _logger.LogInformation(
-                    "Vaccination {ChildVaccineId} marked as taken for child {ChildId}",
-                    childVaccineId, childId);
+                    vaccination.ChildVaccineId);
 
                 return MapToChildVaccinationDto(vaccination);
             }
@@ -363,10 +341,6 @@ namespace MomEase.infra.Services
                 }).ToList();
 
                 await _vaccinationRepository.AddChildVaccinationsAsync(childVaccinations);
-
-                _logger.LogInformation(
-                    "Assigned {Count} vaccinations to child {ChildId}",
-                    childVaccinations.Count, childId);
             }
             catch (Exception ex)
             {
@@ -377,11 +351,9 @@ namespace MomEase.infra.Services
 
         // ===== Private Helpers =====
 
-        // ✅ Validate بدون ChildRepository
         private async Task ValidateChildOwnershipAsync(int childId, int userId)
         {
             var isOwner = await _vaccinationRepository.CheckChildOwnershipAsync(childId, userId);
-
             if (!isOwner)
                 throw new KeyNotFoundException("Child not found");
         }
@@ -405,6 +377,16 @@ namespace MomEase.infra.Services
 
         private string GetAgeLabel(int ageInMonths)
         {
+            var lang = LanguageHelper.GetLang(_httpContextAccessor);
+            if (lang.StartsWith("ar"))
+            {
+                return ageInMonths switch
+                {
+                    0 => "عند الولادة",
+                    1 => "شهر واحد",
+                    _ => $"{ageInMonths} أشهر"
+                };
+            }
             return ageInMonths switch
             {
                 0 => "At Birth",
@@ -415,62 +397,42 @@ namespace MomEase.infra.Services
 
         private VaccinationScheduleDto MapToScheduleDto(Vaccinations v)
         {
+            var lang = LanguageHelper.GetLang(_httpContextAccessor);
             return new VaccinationScheduleDto
             {
                 ScheduleId = v.ScheduleId,
-                Vaccine = v.Vaccine,
+                Vaccine = LanguageHelper.GetLocalized(v.VaccineAr, v.Vaccine, lang),
                 AgeInMonths = v.Age,
-                DoseTiming = v.DoseTiming,
-                DiseasePrevented = v.DiseasePrevented,
-                Dosage = v.Dosage,
-                VaccinationWay = v.VaccinationWay
+                DoseTiming = LanguageHelper.GetLocalized(v.DoseTimingAr, v.DoseTiming, lang),
+                DiseasePrevented = LanguageHelper.GetLocalized(v.DiseasePreventedAr, v.DiseasePrevented, lang),
+                Dosage = LanguageHelper.GetLocalized(v.DosageAr, v.Dosage, lang),
+                VaccinationWay = LanguageHelper.GetLocalized(v.VaccinationWayAr, v.VaccinationWay, lang)
             };
         }
 
         private ChildVaccinationDto MapToChildVaccinationDto(ChildVaccination cv)
         {
+            var lang = LanguageHelper.GetLang(_httpContextAccessor);
             return new ChildVaccinationDto
             {
                 ChildVaccineId = cv.ChildVaccineId,
                 ChildId = cv.ChildId,
                 ScheduleId = cv.ScheduleId,
-                VaccineName = cv.Vaccination?.Vaccine ?? "",
-                DoseTiming = cv.Vaccination?.DoseTiming ?? "",
-                DiseasePrevented = cv.Vaccination?.DiseasePrevented ?? "",
-                Dosage = cv.Vaccination?.Dosage ?? "",
-                VaccinationWay = cv.Vaccination?.VaccinationWay ?? "",
+                VaccineName = LanguageHelper.GetLocalized(
+                    cv.Vaccination?.VaccineAr, cv.Vaccination?.Vaccine ?? "", lang),
+                DoseTiming = LanguageHelper.GetLocalized(
+                    cv.Vaccination?.DoseTimingAr, cv.Vaccination?.DoseTiming ?? "", lang),
+                DiseasePrevented = LanguageHelper.GetLocalized(
+                    cv.Vaccination?.DiseasePreventedAr, cv.Vaccination?.DiseasePrevented ?? "", lang),
+                Dosage = LanguageHelper.GetLocalized(
+                    cv.Vaccination?.DosageAr, cv.Vaccination?.Dosage ?? "", lang),
+                VaccinationWay = LanguageHelper.GetLocalized(
+                    cv.Vaccination?.VaccinationWayAr, cv.Vaccination?.VaccinationWay ?? "", lang),
                 AgeInMonths = cv.Vaccination?.Age ?? 0,
                 ScheduledDate = cv.ScheduledDate,
                 TakenDate = cv.TakenDate,
                 Status = cv.Status.ToString()
             };
-        }
-
-        // ✅ 2. Vaccination Missed (فات موعده)
-        private async Task AutoUpdateMissedVaccinationsAsync(int childId, int userId)
-        {
-            var allVaccinations = await _vaccinationRepository.GetChildVaccinationsAsync(childId);
-            var today = DateTime.Now.Date;
-
-            var missedVaccinations = allVaccinations
-                .Where(cv => cv.Status == VaccineStatus.Pending
-                          && cv.ScheduledDate.Date < today)
-                .ToList();
-
-            foreach (var vaccination in missedVaccinations)
-            {
-                vaccination.Status = VaccineStatus.Missed;
-                await _vaccinationRepository.UpdateChildVaccinationAsync(vaccination);
-
-                // 🔔 إرسال Notification للتطعيم الفائت
-                await _notificationService.SendRealtimeNotificationAsync(
-                    userId,
-                    "⚠️ Missed Vaccination",
-                    $"You missed {vaccination.Vaccination.Vaccine} scheduled for {vaccination.ScheduledDate:dd/MM/yyyy}. Please reschedule.",
-                    "VaccinationMissed",
-                    vaccination.ChildVaccineId
-                );
-            }
         }
     }
 }

@@ -31,6 +31,21 @@ namespace MomEase.core.Entities
         [MaxLength(100)]
         public string VaccinationWay { get; set; }
 
+        [MaxLength(255)]
+        public string? VaccineAr { get; set; }
+
+        [MaxLength(100)]
+        public string? DoseTimingAr { get; set; }
+
+        [MaxLength(255)]
+        public string? DiseasePreventedAr { get; set; }
+
+        [MaxLength(100)]
+        public string? DosageAr { get; set; }
+
+        [MaxLength(100)]
+        public string? VaccinationWayAr { get; set; }
+
         // Navigation Property
         public virtual ICollection<ChildVaccination> ChildVaccinations { get; set; }
     }

@@ -9,9 +9,6 @@ namespace MomEase.core.DTOS.SkinAnalysisDto
 {
     public class SkinAnalysisRequestDto
     {
-        [Required]
-        public int UserId { get; set; }
-
         public int? ChildId { get; set; }
     }
 }

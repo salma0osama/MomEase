@@ -18,6 +18,10 @@ namespace MomEase.core.Entities
         public SkinAnalysisDiseaseName Name { get; set; }
 
         public string Advice { get; set; }
+        [MaxLength(255)]
+        public string? NameAr { get; set; }
+
+        public string? AdviceAr { get; set; }
 
         // Navigation Property
         public virtual ICollection<SkinAnalyses> SkinAnalyses { get; set; }
