@@ -1,8 +1,10 @@
-﻿using Microsoft.Extensions.Logging;
+﻿using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging;
 using MomEase.core.DTOS.GrowthReport;
 using MomEase.core.Entities;
 using MomEase.core.Enums;
 using MomEase.core.Interfaces;
+using MomEase.infra.Helpers;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -22,6 +24,7 @@ namespace MomEase.infra.Services
         private readonly ISleepReferenceRepository _sleepRefRepo;
         private readonly IFeedingReferenceRepository _feedingRefRepo;
         private readonly ILogger<GrowthReportService> _logger;
+        private readonly IHttpContextAccessor _httpContextAccessor;
 
         public GrowthReportService(
             IGrowthReportRepository reportRepo,
@@ -32,7 +35,7 @@ namespace MomEase.infra.Services
             IGrowthPercentileReferenceRepository growthRefRepo,
             ISleepReferenceRepository sleepRefRepo,
             IFeedingReferenceRepository feedingRefRepo,
-            ILogger<GrowthReportService> logger)
+            ILogger<GrowthReportService> logger, IHttpContextAccessor httpContextAccessor)
         {
             _reportRepo = reportRepo;
             _childRepo = childRepo;
@@ -43,6 +46,7 @@ namespace MomEase.infra.Services
             _sleepRefRepo = sleepRefRepo;
             _feedingRefRepo = feedingRefRepo;
             _logger = logger;
+            _httpContextAccessor = httpContextAccessor;
         }
 
         // =====================================================
@@ -101,21 +105,21 @@ namespace MomEase.infra.Services
                 var feedingList = (await _feedingRepo.GetByDateRangeAsync(childId, periodStart, periodEnd)).ToList();
 
                 var growthAnalysis = await AnalyzeGrowthAsync(growthList, child);
-                var sleepAnalysis = await AnalyzeSleepAsync(sleepList, child);
-                var feedingAnalysis = await AnalyzeFeedingAsync(feedingList, child);
-                var correlations = AnalyzeCorrelations(growthList, sleepList, feedingList);
-                var recommendations = GenerateRecommendations(growthAnalysis, sleepAnalysis, feedingAnalysis, correlations);
+                var sleepAnalysis = await AnalyzeSleepAsync(sleepList, child, "en");
+                var feedingAnalysis = await AnalyzeFeedingAsync(feedingList, child, "en");
+                var correlations = AnalyzeCorrelations(growthList, sleepList, feedingList, "en");
+                var recommendations = GenerateRecommendations(growthAnalysis, sleepAnalysis, feedingAnalysis, correlations, "en");
 
                 var reportContent = new GrowthReportContentDto
                 {
                     Summary = new ReportSummaryDto
                     {
-                        OverallStatus = DetermineOverallStatus(growthAnalysis, sleepAnalysis, feedingAnalysis),
+                        OverallStatus = DetermineOverallStatus(growthAnalysis, sleepAnalysis, feedingAnalysis, "en"),
                         TotalDays = (int)(periodEnd - periodStart).TotalDays,
                         GrowthRecordsCount = growthList.Count,
                         SleepRecordsCount = sleepList.Count,
                         FeedingRecordsCount = feedingList.Count,
-                        KeyInsight = GenerateKeyInsight(growthAnalysis, sleepAnalysis, feedingAnalysis, correlations)
+                        KeyInsight = GenerateKeyInsight(growthAnalysis, sleepAnalysis, feedingAnalysis, correlations, "en")
                     },
                     GrowthAnalysis = growthAnalysis,
                     SleepAnalysis = sleepAnalysis,
@@ -310,7 +314,7 @@ namespace MomEase.infra.Services
         }
 
         private async Task<SleepAnalysisDto> AnalyzeSleepAsync(
-            List<ChildSleepRecord> records, Child child)
+            List<ChildSleepRecord> records, Child child, string language)
         {
             if (!records.Any())
                 return new SleepAnalysisDto
@@ -319,7 +323,7 @@ namespace MomEase.infra.Services
                     GoodSleepDays = 0,
                     PoorSleepDays = 0,
                     CurrentStatus = "No Data",
-                    Message = "No sleep data available for the specified period"
+                    Message = LocalizationHelper.GetLocalizedMessage("NoSleepData", language)
                 };
 
             var withSleep = records.Where(r => r.SleepHoursTotal.HasValue).ToList();
@@ -330,7 +334,7 @@ namespace MomEase.infra.Services
                     GoodSleepDays = 0,
                     PoorSleepDays = 0,
                     CurrentStatus = "No Data",
-                    Message = "No sleep hours data available"
+                    Message = LocalizationHelper.GetLocalizedMessage("NoSleepHoursData", language)
                 };
 
             var avgSleep = withSleep.Average(r => r.SleepHoursTotal.Value.TotalHours);
@@ -357,12 +361,12 @@ namespace MomEase.infra.Services
                 GoodSleepDays = goodDays,
                 PoorSleepDays = poorDays,
                 CurrentStatus = status,
-                Message = GenerateSleepMessage(avgSleep, minSleep, maxSleep)
+                Message = GenerateSleepMessage(avgSleep, minSleep, maxSleep,language)
             };
         }
 
         private async Task<FeedingAnalysisDto> AnalyzeFeedingAsync(
-            List<ChildFeedingRecord> records, Child child)
+            List<ChildFeedingRecord> records, Child child, string language)
         {
             if (!records.Any())
                 return new FeedingAnalysisDto
@@ -371,7 +375,7 @@ namespace MomEase.infra.Services
                     GoodFeedingDays = 0,
                     PoorFeedingDays = 0,
                     CurrentStatus = "No Data",
-                    Message = "No feeding data available for the specified period"
+                    Message = LocalizationHelper.GetLocalizedMessage("NoFeedingData", language)
                 };
 
             var uniqueDays = records.Select(r => r.FeedingDate.Date).Distinct().Count();
@@ -400,35 +404,35 @@ namespace MomEase.infra.Services
                 GoodFeedingDays = goodDays,
                 PoorFeedingDays = poorDays,
                 CurrentStatus = status,
-                Message = GenerateFeedingMessage(avgFeedingsPerDay, minFeedings, maxFeedings)
+                Message = GenerateFeedingMessage(avgFeedingsPerDay, minFeedings, maxFeedings,language)
             };
         }
 
         private CorrelationAnalysisDto AnalyzeCorrelations(
             List<GrowthRecords> growthRecords,
             List<ChildSleepRecord> sleepRecords,
-            List<ChildFeedingRecord> feedingRecords)
+            List<ChildFeedingRecord> feedingRecords, string language)
         {
-            var sleepCorr = AnalyzeSleepGrowthCorrelation(growthRecords, sleepRecords);
-            var feedingCorr = AnalyzeFeedingGrowthCorrelation(growthRecords, feedingRecords);
+            var sleepCorr = AnalyzeSleepGrowthCorrelation(growthRecords, sleepRecords, language);
+            var feedingCorr = AnalyzeFeedingGrowthCorrelation(growthRecords, feedingRecords, language);
 
             return new CorrelationAnalysisDto
             {
                 SleepAndGrowth = sleepCorr,
                 FeedingAndGrowth = feedingCorr,
-                OverallInsight = GenerateOverallInsight(sleepCorr, feedingCorr)
+                OverallInsight = GenerateOverallInsight(sleepCorr, feedingCorr, language)
             };
         }
 
         private SleepGrowthCorrelationDto AnalyzeSleepGrowthCorrelation(
-            List<GrowthRecords> growthRecords, List<ChildSleepRecord> sleepRecords)
+            List<GrowthRecords> growthRecords, List<ChildSleepRecord> sleepRecords, string language)
         {
             if (!growthRecords.Any() || !sleepRecords.Any())
                 return new SleepGrowthCorrelationDto
                 {
                     HasCorrelation = false,
                     Type = "None",
-                    Message = "Not enough data to analyze the relationship between sleep and growth"
+                    Message = LocalizationHelper.GetLocalizedMessage("NotEnoughDataSleepGrowth", language)
                 };
 
             var ordered = growthRecords.OrderBy(r => r.RecordDate).ToList();
@@ -457,7 +461,7 @@ namespace MomEase.infra.Services
                 {
                     HasCorrelation = false,
                     Type = "None",
-                    Message = "Not enough data to analyze the relationship"
+                    Message = LocalizationHelper.GetLocalizedMessage("NotEnoughDataCorrelation", language)
                 };
 
             var goodSleep = monthlyData.Where(d => d.avgSleep >= 12).ToList();
@@ -468,7 +472,7 @@ namespace MomEase.infra.Services
                 {
                     HasCorrelation = false,
                     Type = "None",
-                    Message = "No clear relationship observed between sleep and growth"
+                    Message = LocalizationHelper.GetLocalizedMessage("NoCorrelationObserved", language)
                 };
 
             var goodGrowth = goodSleep.Average(d => (double)d.weightGain);
@@ -481,7 +485,7 @@ namespace MomEase.infra.Services
                 {
                     HasCorrelation = true,
                     Type = "Positive",
-                    Message = $"During periods of good sleep (12+ hours), growth was {pct}% better"
+                    Message = LocalizationHelper.GetLocalizedMessage("SleepGrowthPositive", language, pct)
                 };
             }
 
@@ -489,19 +493,19 @@ namespace MomEase.infra.Services
             {
                 HasCorrelation = false,
                 Type = "None",
-                Message = "No clear relationship observed between sleep and growth"
+                Message = LocalizationHelper.GetLocalizedMessage("NoCorrelationObserved", language)
             };
         }
 
         private FeedingGrowthCorrelationDto AnalyzeFeedingGrowthCorrelation(
-            List<GrowthRecords> growthRecords, List<ChildFeedingRecord> feedingRecords)
+            List<GrowthRecords> growthRecords, List<ChildFeedingRecord> feedingRecords, string language)
         {
             if (!growthRecords.Any() || !feedingRecords.Any())
                 return new FeedingGrowthCorrelationDto
                 {
                     HasCorrelation = false,
                     Type = "None",
-                    Message = "Not enough data to analyze the relationship between feeding and growth"
+                    Message = LocalizationHelper.GetLocalizedMessage("NotEnoughDataFeedingGrowth", language)
                 };
 
             var ordered = growthRecords.OrderBy(r => r.RecordDate).ToList();
@@ -531,7 +535,7 @@ namespace MomEase.infra.Services
                 {
                     HasCorrelation = false,
                     Type = "None",
-                    Message = "Not enough data to analyze the relationship"
+                    Message = LocalizationHelper.GetLocalizedMessage("NotEnoughDataCorrelation", language)
                 };
 
             var goodFeeding = monthlyData.Where(d => d.avgFeedings >= 5).ToList();
@@ -542,7 +546,7 @@ namespace MomEase.infra.Services
                 {
                     HasCorrelation = false,
                     Type = "None",
-                    Message = "No clear relationship observed between feeding and growth"
+                    Message = LocalizationHelper.GetLocalizedMessage("NoCorrelationObservedFeeding", language)
                 };
 
             var goodGrowth = goodFeeding.Average(d => (double)d.weightGain);
@@ -553,14 +557,14 @@ namespace MomEase.infra.Services
                 {
                     HasCorrelation = true,
                     Type = "Positive",
-                    Message = "Days with regular feeding (5+ times) showed better growth"
+                    Message = LocalizationHelper.GetLocalizedMessage("FeedingGrowthPositive", language)
                 };
 
             return new FeedingGrowthCorrelationDto
             {
                 HasCorrelation = false,
                 Type = "None",
-                Message = "No clear relationship observed between feeding and growth"
+                Message = LocalizationHelper.GetLocalizedMessage("NoCorrelationObservedFeeding", language)
             };
         }
 
@@ -766,107 +770,131 @@ namespace MomEase.infra.Services
         }
 
         private string DetermineOverallStatus(
-            GrowthAnalysisDto growth, SleepAnalysisDto sleep, FeedingAnalysisDto feeding)
+            GrowthAnalysisDto growth, SleepAnalysisDto sleep, FeedingAnalysisDto feeding, string language = "en")
         {
+           
             var scores = new List<string> { growth.WeightStatus, sleep.CurrentStatus, feeding.CurrentStatus };
             var goodCount = scores.Count(s => s is "Good" or "Normal" or "Above Average" or "Below Average");
             var poorCount = scores.Count(s => s is "Poor" or "Underweight" or "Overweight" or "Short" or "Tall");
 
-            if (goodCount >= 2) return "Excellent - Normal Growth";
-            if (poorCount >= 2) return "Needs Attention";
-            return "Good";
+            if (goodCount >= 2) return LocalizationHelper.GetLocalizedMessage("ExcellentNormalGrowth", language);
+            if (poorCount >= 2) return LocalizationHelper.GetLocalizedMessage("NeedsAttention", language);
+            return LocalizationHelper.GetLocalizedMessage("Good", language);
         }
 
         private string GenerateKeyInsight(
             GrowthAnalysisDto growth, SleepAnalysisDto sleep,
-            FeedingAnalysisDto feeding, CorrelationAnalysisDto correlations)
+            FeedingAnalysisDto feeding, CorrelationAnalysisDto correlations, string language = "en")
         {
-            if (growth.WeightStatus is "Underweight" or "Overweight")
-                return $"⚠️ Attention: Your child's weight is {growth.WeightStatus}, follow-up with a doctor is recommended";
+            // السطر ~695
+            if (growth.WeightStatus == "Underweight")
+                return LocalizationHelper.GetLocalizedMessage("WeightUnderweight", language);
+
+            if (growth.WeightStatus == "Overweight")
+                return LocalizationHelper.GetLocalizedMessage("WeightOverweight", language);
+
             if (sleep.CurrentStatus == "Poor")
-                return "⚠️ Your child needs more sleep for better growth";
+                return LocalizationHelper.GetLocalizedMessage("SleepNeedsMore", language);
+
             if (feeding.CurrentStatus == "Poor")
-                return "⚠️ Number of feedings is below recommended";
+                return LocalizationHelper.GetLocalizedMessage("FeedingBelowRecommended", language);
+
             if (correlations.SleepAndGrowth.HasCorrelation)
-                return "✅ Good sleep helps with better growth - keep it up!";
-            return "✅ Your child is growing normally";
+                return LocalizationHelper.GetLocalizedMessage("SleepHelpsGrowth", language);
+
+            return LocalizationHelper.GetLocalizedMessage("NormalGrowth", language);
         }
 
         private string GenerateOverallInsight(
-            SleepGrowthCorrelationDto sleepCorr, FeedingGrowthCorrelationDto feedingCorr)
+            SleepGrowthCorrelationDto sleepCorr, FeedingGrowthCorrelationDto feedingCorr, string language = "en")
         {
             if (sleepCorr.HasCorrelation && feedingCorr.HasCorrelation)
-                return "Good sleep and regular feeding together contribute to better growth";
+                return LocalizationHelper.GetLocalizedMessage("SleepFeedingTogether", language);
+
             if (sleepCorr.HasCorrelation)
-                return "Good sleep has a positive impact on your child's growth";
+                return LocalizationHelper.GetLocalizedMessage("SleepPositiveImpact", language);
+
             if (feedingCorr.HasCorrelation)
-                return "Regular feeding has a positive impact on your child's growth";
-            return "Continue with current sleep and feeding routine";
+                return LocalizationHelper.GetLocalizedMessage("FeedingPositiveImpact", language);
+
+            return LocalizationHelper.GetLocalizedMessage("ContinueRoutine", language);
         }
 
         private List<string> GenerateRecommendations(
             GrowthAnalysisDto growth, SleepAnalysisDto sleep,
-            FeedingAnalysisDto feeding, CorrelationAnalysisDto correlations)
+            FeedingAnalysisDto feeding, CorrelationAnalysisDto correlations, string language = "en")
         {
             var recs = new List<string>();
 
+            // السطر ~720
             if (sleep.CurrentStatus == "Poor")
             {
-                recs.Add("🌙 Try to increase your child's sleep hours to the normal range");
-                recs.Add("🌙 Maintain a regular sleep routine");
+                recs.Add(LocalizationHelper.GetLocalizedMessage("IncreaseSleepHours", language));
+                recs.Add(LocalizationHelper.GetLocalizedMessage("MaintainSleepRoutine", language));
             }
             else if (sleep.CurrentStatus == "Good")
-                recs.Add("✅ Continue with the current sleep routine - it's excellent");
+                recs.Add(LocalizationHelper.GetLocalizedMessage("ContinueSleepRoutine", language));
 
             if (feeding.CurrentStatus == "Poor")
             {
-                recs.Add("🍼 Try to increase the number of feedings");
-                recs.Add("🍼 Make sure the baby feeds adequately each time");
+                recs.Add(LocalizationHelper.GetLocalizedMessage("IncreaseFeedings", language));
+                recs.Add(LocalizationHelper.GetLocalizedMessage("EnsureAdequateFeeding", language));
             }
             else if (feeding.CurrentStatus == "Good")
-                recs.Add("✅ Current feeding routine is excellent - keep it up");
+                recs.Add(LocalizationHelper.GetLocalizedMessage("ContinueFeedingRoutine", language));
 
             if (growth.WeightStatus == "Underweight")
             {
-                recs.Add("⚠️ Your child's weight is below normal - consult a pediatrician");
-                recs.Add("⚠️ Ensure adequate feeding");
+                recs.Add(LocalizationHelper.GetLocalizedMessage("ConsultPediatrician", language));
+                recs.Add(LocalizationHelper.GetLocalizedMessage("EnsureSufficientFeeding", language));
             }
             else if (growth.WeightStatus == "Overweight")
-                recs.Add("⚠️ Your child's weight is above normal - consult a doctor");
+                recs.Add(LocalizationHelper.GetLocalizedMessage("ConsultDoctorOverweight", language));
             else
-                recs.Add("✅ Your child's growth is normal - continue with the same routine");
+                recs.Add(LocalizationHelper.GetLocalizedMessage("GrowthNormalContinue", language));
 
             if (correlations.SleepAndGrowth.HasCorrelation)
-                recs.Add("💡 Good sleep helps your child's growth - make it a priority");
+                recs.Add(LocalizationHelper.GetLocalizedMessage("SleepPriority", language));
 
-            recs.Add("📊 Monitor progress next month and compare with this report");
+            recs.Add(LocalizationHelper.GetLocalizedMessage("MonitorProgress", language));
             return recs;
         }
 
-        private string GenerateSleepMessage(double avg, double min, double max)
+        private string GenerateSleepMessage(double avg, double min, double max, string language = "en")
         {
+            // السطر ~755
             if (avg < min * 0.7)
-                return $"⚠️⚠️ Average sleep ({avg:F1}h) is significantly below recommended ({min}-{max}h). Please consult a pediatrician";
+                return LocalizationHelper.GetLocalizedMessage("SleepSignificantlyBelow", language, avg, min, max);
             if (avg < min)
-                return $"⚠️ Average sleep ({avg:F1}h) is slightly below recommended ({min}-{max}h)";
+                return LocalizationHelper.GetLocalizedMessage("SleepSlightlyBelow", language, avg, min, max);
             if (avg <= max)
-                return $"✅ Average sleep ({avg:F1}h) is within the normal range ({min}-{max}h)";
-            return $"Average sleep ({avg:F1}h) is slightly above recommended ({min}-{max}h), which is usually fine";
+                return LocalizationHelper.GetLocalizedMessage("SleepNormal", language, avg, min, max);
+            return LocalizationHelper.GetLocalizedMessage("SleepAboveAverage", language, avg, min, max);
         }
 
-        private string GenerateFeedingMessage(double avg, int min, int max)
+        private string GenerateFeedingMessage(double avg, int min, int max, string language = "en")
         {
+            // السطر ~766
             if (avg < min * 0.7)
-                return $"⚠️⚠️ Average feedings ({avg:F1}/day) is significantly below recommended ({min}-{max}). Please consult a pediatrician";
+                return LocalizationHelper.GetLocalizedMessage("FeedingSignificantlyBelow", language, avg, min, max);
             if (avg < min)
-                return $"⚠️ Average feedings ({avg:F1}/day) is slightly below recommended ({min}-{max})";
+                return LocalizationHelper.GetLocalizedMessage("FeedingSlightlyBelow", language, avg, min, max);
             if (avg <= max)
-                return $"✅ Average feedings ({avg:F1}/day) is within the normal range ({min}-{max})";
-            return $"Average feedings ({avg:F1}/day) is above recommended ({min}-{max}), which is usually good";
+                return LocalizationHelper.GetLocalizedMessage("FeedingNormal", language, avg, min, max);
+            return LocalizationHelper.GetLocalizedMessage("FeedingAboveAverage", language);
         }
 
         private GrowthReportDto MapToDto(GrowthReports report, Child child, GrowthReportContentDto content)
         {
+            // ⭐ جيبي اللغة من الـ Request الحالي
+            var currentLanguage = GetLang();
+
+            // ⭐ ترجمي الـ Content
+            var translatedContent = TranslateContent(content, currentLanguage);
+
+            // ⭐ ترجمي الـ GrowthStatus
+            var translatedStatus = TranslateStatus(report.GrowthStatus, currentLanguage);
+
             return new GrowthReportDto
             {
                 ReportId = report.ReportId,
@@ -874,9 +902,9 @@ namespace MomEase.infra.Services
                 ChildName = child.FullName,
                 PeriodStart = report.PeriodStart,
                 PeriodEnd = report.PeriodEnd,
-                GrowthStatus = report.GrowthStatus,
+                GrowthStatus = translatedStatus,  // ⭐ مترجم
                 CreatedAt = DateTime.Now,
-                ReportContent = content
+                ReportContent = translatedContent  // ⭐ مترجم
             };
         }
 
@@ -893,6 +921,343 @@ namespace MomEase.infra.Services
             var months = ((atDate.Year - birthDate.Year) * 12) + atDate.Month - birthDate.Month;
             if (atDate.Day < birthDate.Day) months--;
             return months < 0 ? 0 : months;
+        }
+        /// <summary>
+        /// Get language from HTTP request
+        /// </summary>
+        // =====================================================
+        // LOCALIZATION METHODS (جديد - للترجمة)
+        // =====================================================
+
+        /// <summary>
+        /// Get language from HTTP request
+        /// </summary>
+        private string GetLang()
+        {
+            return _httpContextAccessor.HttpContext?
+                .Request.Headers["Accept-Language"]
+                .ToString().ToLower() ?? "en";
+        }
+
+        /// <summary>
+        /// ترجمة الـ Status
+        /// </summary>
+        private string TranslateStatus(string status, string language)
+        {
+            if (language != "ar") return status;
+
+            return status switch
+            {
+                "Excellent - Normal Growth" => "ممتاز - النمو طبيعي",
+                "Good" => "جيد",
+                "Needs Attention" => "يحتاج متابعة",
+                _ => status
+            };
+        }
+
+        /// <summary>
+        /// ترجمة Weight Status
+        /// </summary>
+        private string TranslateWeightStatus(string status, string language)
+        {
+            if (language != "ar") return status;
+
+            return status switch
+            {
+                "Normal" => "طبيعي",
+                "Underweight" => "وزن منخفض",
+                "Overweight" => "وزن زائد",
+                "Below Average" => "تحت المتوسط",
+                "Above Average" => "فوق المتوسط",
+                "No Data" => "لا توجد بيانات",
+                _ => status
+            };
+        }
+
+        /// <summary>
+        /// ترجمة Height Status
+        /// </summary>
+        private string TranslateHeightStatus(string status, string language)
+        {
+            if (language != "ar") return status;
+
+            return status switch
+            {
+                "Normal" => "طبيعي",
+                "Short" => "قصير",
+                "Tall" => "طويل",
+                "Below Average" => "تحت المتوسط",
+                "Above Average" => "فوق المتوسط",
+                "No Data" => "لا توجد بيانات",
+                _ => status
+            };
+        }
+
+        /// <summary>
+        /// ترجمة Trend
+        /// </summary>
+        private string TranslateTrend(string trend, string language)
+        {
+            if (language != "ar") return trend;
+
+            return trend switch
+            {
+                "Increasing" => "في ازدياد",
+                "Decreasing" => "في انخفاض",
+                "Stable" => "مستقر",
+                "No Data" => "لا توجد بيانات",
+                _ => trend
+            };
+        }
+
+        /// <summary>
+        /// ترجمة Monthly Status
+        /// </summary>
+        private string TranslateMonthlyStatus(string status, string language)
+        {
+            if (language != "ar") return status;
+
+            return status switch
+            {
+                "Good" => "جيد",
+                "Poor" => "ضعيف",
+                "Normal" => "طبيعي",
+                _ => status
+            };
+        }
+
+        /// <summary>
+        /// ترجمة Sleep Status
+        /// </summary>
+        private string TranslateSleepStatus(string status, string language)
+        {
+            if (language != "ar") return status;
+
+            return status switch
+            {
+                "Good" => "جيد",
+                "Poor" => "ضعيف",
+                "Normal" => "طبيعي",
+                "No Data" => "لا توجد بيانات",
+                _ => status
+            };
+        }
+
+        /// <summary>
+        /// ترجمة Feeding Status
+        /// </summary>
+        private string TranslateFeedingStatus(string status, string language)
+        {
+            if (language != "ar") return status;
+
+            return status switch
+            {
+                "Good" => "جيد",
+                "Poor" => "ضعيف",
+                "Normal" => "طبيعي",
+                "No Data" => "لا توجد بيانات",
+                _ => status
+            };
+        }
+
+        /// <summary>
+        /// ترجمة الـ Content كله
+        /// </summary>
+        private GrowthReportContentDto TranslateContent(GrowthReportContentDto content, string language)
+        {
+            if (language != "ar") return content;
+
+            // ⭐ Summary
+            if (content.Summary != null)
+            {
+                content.Summary.OverallStatus = TranslateStatus(content.Summary.OverallStatus, language);
+                content.Summary.KeyInsight = TranslateMessage(content.Summary.KeyInsight, language);
+            }
+
+            // ⭐ Growth Analysis
+            if (content.GrowthAnalysis != null)
+            {
+                content.GrowthAnalysis.WeightStatus = TranslateWeightStatus(content.GrowthAnalysis.WeightStatus, language);
+                content.GrowthAnalysis.HeightStatus = TranslateHeightStatus(content.GrowthAnalysis.HeightStatus, language);
+                content.GrowthAnalysis.Trend = TranslateTrend(content.GrowthAnalysis.Trend, language);
+
+                // Monthly Breakdown
+                if (content.GrowthAnalysis.MonthlyBreakdown != null)
+                {
+                    foreach (var month in content.GrowthAnalysis.MonthlyBreakdown)
+                    {
+                        month.Status = TranslateMonthlyStatus(month.Status, language);
+                    }
+                }
+            }
+
+            // ⭐ Sleep Analysis
+            if (content.SleepAnalysis != null)
+            {
+                content.SleepAnalysis.CurrentStatus = TranslateSleepStatus(content.SleepAnalysis.CurrentStatus, language);
+                content.SleepAnalysis.Message = TranslateMessage(content.SleepAnalysis.Message, language);
+            }
+
+            // ⭐ Feeding Analysis  
+            if (content.FeedingAnalysis != null)
+            {
+                content.FeedingAnalysis.CurrentStatus = TranslateFeedingStatus(content.FeedingAnalysis.CurrentStatus, language);
+                content.FeedingAnalysis.Message = TranslateMessage(content.FeedingAnalysis.Message, language);
+            }
+
+            // ⭐ Correlations
+            if (content.Correlations != null)
+            {
+                content.Correlations.OverallInsight = TranslateMessage(content.Correlations.OverallInsight, language);
+
+                if (content.Correlations.SleepAndGrowth != null)
+                {
+                    content.Correlations.SleepAndGrowth.Type = TranslateCorrelationType(content.Correlations.SleepAndGrowth.Type, language);
+                    content.Correlations.SleepAndGrowth.Message = TranslateMessage(content.Correlations.SleepAndGrowth.Message, language);
+                }
+
+                if (content.Correlations.FeedingAndGrowth != null)
+                {
+                    content.Correlations.FeedingAndGrowth.Type = TranslateCorrelationType(content.Correlations.FeedingAndGrowth.Type, language);
+                    content.Correlations.FeedingAndGrowth.Message = TranslateMessage(content.Correlations.FeedingAndGrowth.Message, language);
+                }
+            }
+
+            // ⭐ Recommendations
+            if (content.Recommendations != null)
+            {
+                content.Recommendations = content.Recommendations
+                    .Select(r => TranslateMessage(r, language))
+                    .ToList();
+            }
+
+            return content;
+        }
+
+        /// <summary>
+        /// ⭐ ترجمة الرسائل من الإنجليزي للعربي
+        /// </summary>
+        private string TranslateMessage(string message, string language)
+        {
+            if (string.IsNullOrEmpty(message) || language != "ar")
+                return message;
+
+            // ترجمة الرسائل الثابتة
+            var translations = new Dictionary<string, string>
+    {
+        // Key Insights
+        { "✅ Good sleep helps with better growth - keep it up!", "✅ النوم الجيد يساعد على نمو أفضل - استمري!" },
+        { "✅ Your child is growing normally", "✅ طفلك ينمو بشكل طبيعي" },
+        { "⚠️ Your child needs more sleep for better growth", "⚠️ طفلك يحتاج المزيد من النوم لنمو أفضل" },
+        { "⚠️ Number of feedings is below recommended", "⚠️ عدد الرضعات أقل من المطلوب" },
+        
+        // Overall Insights
+        { "Good sleep and regular feeding together contribute to better growth", "النوم الجيد والرضاعة المنتظمة معاً يساعدان على نمو أفضل" },
+        { "Good sleep has a positive impact on your child's growth", "النوم الجيد له تأثير إيجابي على نمو طفلك" },
+        { "Regular feeding has a positive impact on your child's growth", "الرضاعة المنتظمة لها تأثير إيجابي على نمو طفلك" },
+        { "Continue with current sleep and feeding routine", "استمري على نظام النوم والرضاعة الحالي" },
+        
+        // Recommendations
+        { "✅ Continue with the current sleep routine - it's excellent", "✅ استمري على نظام النوم الحالي - إنه ممتاز" },
+        { "✅ Current feeding routine is excellent - keep it up", "✅ نظام الرضاعة الحالي ممتاز - استمري عليه" },
+        { "✅ Your child's growth is normal - continue with the same routine", "✅ نمو طفلك طبيعي - استمري على نفس النظام" },
+        { "💡 We noticed that good sleep helps your child's growth - make it a priority", "💡 لاحظنا أن نوم طفلك الجيد يساعد على نموه - اجعليه أولوية" },
+        { "📊 Monitor progress next month and compare with this report", "📊 راقبي التطور في الشهر القادم وقارنيه بهذا التقرير" },
+        { "🌙 Try to increase your child's sleep hours to the normal range", "🌙 حاولي زيادة ساعات نوم طفلك إلى المدى الطبيعي" },
+        { "🌙 Maintain a regular sleep routine", "🌙 حافظي على روتين نوم منتظم" },
+        { "🍼 Try to increase the number of feedings", "🍼 حاولي زيادة عدد الرضعات" },
+        { "🍼 Make sure the baby feeds adequately each time", "🍼 تأكدي أن الطفل يرضع بشكل كافٍ في كل مرة" },
+        { "⚠️ Your child's weight is below normal - consult a pediatrician", "⚠️ وزن طفلك أقل من الطبيعي - استشيري طبيب أطفال" },
+        { "⚠️ Ensure adequate feeding", "⚠️ تأكدي من كفاية الرضاعة" },
+        { "⚠️ Your child's weight is above normal - consult a doctor", "⚠️ وزن طفلك أعلى من الطبيعي - استشيري طبيب" }
+    };
+
+            // لو الرسالة موجودة في القاموس، ارجع الترجمة
+            if (translations.TryGetValue(message, out var translation))
+            {
+                return translation;
+            }
+
+            // ⭐ للرسائل اللي فيها أرقام (dynamic messages)
+            // مثال: "✅ Average sleep (12.3 hours) is within the normal range (12-16 hours)"
+            if (message.Contains("Average sleep") && message.Contains("is within the normal range"))
+            {
+                // Extract the numbers
+                var match = System.Text.RegularExpressions.Regex.Match(
+                    message, @"Average sleep \((\d+\.?\d*) hours\) is within the normal range \((\d+)-(\d+) hours\)");
+
+                if (match.Success)
+                {
+                    var avg = match.Groups[1].Value;
+                    var min = match.Groups[2].Value;
+                    var max = match.Groups[3].Value;
+                    return $"✅ متوسط النوم ({avg} ساعة) ضمن المدى الطبيعي ({min}-{max} ساعة)";
+                }
+            }
+
+            if (message.Contains("Average sleep") && message.Contains("is slightly below recommended"))
+            {
+                var match = System.Text.RegularExpressions.Regex.Match(
+                    message, @"Average sleep \((\d+\.?\d*) hours\) is slightly below recommended \((\d+)-(\d+) hours\)");
+
+                if (match.Success)
+                {
+                    var avg = match.Groups[1].Value;
+                    var min = match.Groups[2].Value;
+                    var max = match.Groups[3].Value;
+                    return $"⚠️ متوسط النوم ({avg} ساعة) أقل قليلاً من المطلوب ({min}-{max} ساعة)";
+                }
+            }
+
+            if (message.Contains("Average feedings") && message.Contains("is within the normal range"))
+            {
+                var match = System.Text.RegularExpressions.Regex.Match(
+                    message, @"Average feedings \((\d+\.?\d*) times/day\) is within the normal range \((\d+)-(\d+) times\)");
+
+                if (match.Success)
+                {
+                    var avg = match.Groups[1].Value;
+                    var min = match.Groups[2].Value;
+                    var max = match.Groups[3].Value;
+                    return $"✅ متوسط الرضاعة ({avg} مرة/يوم) ضمن المدى الطبيعي ({min}-{max} مرات)";
+                }
+            }
+
+            if (message.Contains("We noticed that during periods when your child slept well"))
+            {
+                var match = System.Text.RegularExpressions.Regex.Match(
+                    message, @"growth was (\d+)% better");
+
+                if (match.Success)
+                {
+                    var percent = match.Groups[1].Value;
+                    return $"✅ لاحظنا أنه في الفترات اللي طفلك نام فيها كويس (12+ ساعة)، النمو كان أفضل بنسبة {percent}%";
+                }
+            }
+
+            if (message.Contains("We noticed that days with regular feeding"))
+            {
+                return "✅ لاحظنا أن الأيام اللي فيها رضاعة منتظمة (5+ مرات)، النمو كان أفضل";
+            }
+
+            // لو مافيش ترجمة، ارجع الرسالة الأصلية
+            return message;
+        }
+
+        /// <summary>
+        /// ⭐ ترجمة نوع العلاقة (Correlation Type)
+        /// </summary>
+        private string TranslateCorrelationType(string type, string language)
+        {
+            if (language != "ar") return type;
+
+            return type switch
+            {
+                "Positive" => "إيجابي",
+                "Negative" => "سلبي",
+                "None" => "لا يوجد",
+                _ => type
+            };
         }
     }
 }
