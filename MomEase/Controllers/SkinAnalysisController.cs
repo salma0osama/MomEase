@@ -1,122 +1,220 @@
 ﻿using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using MomEase.core.DTOS.AdminDTO;
-using MomEase.core.DTOS;
+using MomEase.core.DTOS.SkinAnalysisDto;
+using MomEase.core.Entities;
 using MomEase.core.Interfaces;
 using System.Security.Claims;
-using MomEase.infra.Services;
-using MomEase.core.Enums;
-using MomEase.core.DTOS.SkinAnalysisDto;
 
-namespace MomEase.API.Controllers
+[ApiController]
+[Route("api/skin-analysis")]
+[Authorize]
+public class SkinAnalysisController : ControllerBase
 {
-    [ApiController]
-    [Route("api/SkinAnalysis")]
-    public class SkinAnalysisController : ControllerBase
+    private readonly ISkinAnalysisService _skinAnalysisService;
+    private readonly ISkinAnalysisAIService _aiService;
+    private readonly IChildRepository _childRepo;
+    private readonly ILogger<SkinAnalysisController> _logger;
+
+    public SkinAnalysisController(
+        ISkinAnalysisService skinAnalysisService,
+        ISkinAnalysisAIService aiService,
+        IChildRepository childRepo,
+        ILogger<SkinAnalysisController> logger)
     {
-        private readonly ISkinAnalysisAIService _aiService;
-        private readonly ILogger<SkinAnalysisController> _logger;
+        _skinAnalysisService = skinAnalysisService;
+        _aiService = aiService;
+        _childRepo = childRepo;
+        _logger = logger;
+    }
 
-        public SkinAnalysisController(
-            ISkinAnalysisAIService aiService,
-            ILogger<SkinAnalysisController> logger)
-        {
-            _aiService = aiService;
-            _logger = logger;
-        }
+    private int GetCurrentUserId()
+    {
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                       ?? User.FindFirst("userId")?.Value;
+        if (string.IsNullOrEmpty(userIdClaim) || !int.TryParse(userIdClaim, out int userId))
+            throw new UnauthorizedAccessException("User ID not found");
+        return userId;
+    }
 
-        /// <summary>
-        /// اختبار سريع للـ Gradio API - جرب الصورة مباشرة
-        /// </summary>
-        /// <param name="image">ملف الصورة</param>
-        /// <returns>نتيجة التحليل</returns>
-        [HttpPost("quick-test")]
-        [ProducesResponseType(typeof(object), 200)]
-        [ProducesResponseType(400)]
-        [ProducesResponseType(500)]
-        public async Task<IActionResult> QuickTest(IFormFile image)
+    [HttpPost("analyze")]
+    [Consumes("multipart/form-data")]
+    public async Task<IActionResult> AnalyzeImage(
+      [FromForm] SkinAnalysisRequestDto request,
+      IFormFile image)
+    {
+        try
         {
-            try
+            var userId = GetCurrentUserId();
+
+            if (request.ChildId.HasValue)
             {
-                _logger.LogInformation("Testing with image: {FileName}", image?.FileName);
-
-                if (image == null || image.Length == 0)
-                {
-                    return BadRequest(new
-                    {
-                        success = false,
-                        error = "No image provided"
-                    });
-                }
-
-                // ✅ استخدم tuple
-                var (disease, confidence) = await _aiService.AnalyzeImageAsync(image);
-
-                return Ok(new
-                {
-                    success = true,
-                    prediction = disease.ToString(),
-                    confidence = $"{confidence:F2}%",  // ✅ عرض الثقة
-                    message = "تم التحليل بنجاح! ✅",
-                    details = new
-                    {
-                        fileName = image.FileName,
-                        fileSize = $"{image.Length / 1024.0:F2} KB",
-                        contentType = image.ContentType,
-                        predictedDisease = disease,
-                        confidenceScore = confidence
-                    }
-                });
+                var isOwned = await _childRepo
+                    .IsChildOwnedByUserAsync(request.ChildId.Value, userId);
+                if (!isOwned)
+                    throw new KeyNotFoundException("Child not found");
             }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error during test");
-                return StatusCode(500, new
-                {
-                    success = false,
-                    error = "Internal Server Error",
-                    message = ex.Message
-                });
-            }
-        }
 
-        /// <summary>
-        /// فحص حالة الاتصال بـ Gradio API
-        /// </summary>
-        [HttpGet("health-check")]
-        [ProducesResponseType(typeof(object), 200)]
-        public IActionResult HealthCheck()
-        {
+            var result = await _skinAnalysisService
+                .AnalyzeNewImageAsync(userId, request, image);
+
             return Ok(new
             {
-                service = "Skin Analysis AI Service",
-                status = "Running",
-                gradioEndpoint = "https://sohailaaaz-skin-disease-api.hf.space",
-                timestamp = DateTime.UtcNow,
-                message = "Service is ready to accept images ✅"
+                success = true,
+                message = "Image analyzed successfully",
+                data = result
             });
         }
-
-        /// <summary>
-        /// الأمراض المدعومة
-        /// </summary>
-        [HttpGet("supported-diseases")]
-        [ProducesResponseType(typeof(object), 200)]
-        public IActionResult GetSupportedDiseases()
+        catch (ArgumentException ex)
         {
+            return BadRequest(new { success = false, message = ex.Message });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { success = false, message = ex.Message });
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return StatusCode(403, new { success = false, message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error analyzing image");
+            return StatusCode(500, new { success = false, message = ex.Message });
+        }
+    }
+    [HttpGet("user")]
+    public async Task<IActionResult> GetUserAnalyses()
+    {
+        try
+        {
+            var userId = GetCurrentUserId();
+            var analyses = await _skinAnalysisService.GetUserAnalysesAsync(userId);
             return Ok(new
             {
-                supportedDiseases = new[]
-                {
-                    new { id = 1, name = "InsectBites", arabicName = "لدغات الحشرات" },
-                    new { id = 2, name = "Impetigo", arabicName = "القوباء" },
-                    new { id = 3, name = "HandFootAndMouth", arabicName = "مرض اليد والقدم والفم" },
-                    new { id = 4, name = "Diaper", arabicName = "طفح الحفاضات" },
-                    new { id = 5, name = "Chickenpox", arabicName = "جدري الماء" }
-                },
-                totalCount = 5
+                success = true,
+                message = "Analyses retrieved successfully",
+                count = analyses.Count,
+                data = analyses
             });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving user analyses");
+            return StatusCode(500, new { success = false, message = ex.Message });
+        }
+    }
+
+    [HttpGet("child/{childId}")]
+    public async Task<IActionResult> GetChildAnalyses(int childId)
+    {
+        try
+        {
+            var userId = GetCurrentUserId();
+            var isOwned = await _childRepo.IsChildOwnedByUserAsync(childId, userId);
+            if (!isOwned)
+                return NotFound(new { success = false, message = "Child not found" });
+
+            var analyses = await _skinAnalysisService.GetChildAnalysesAsync(childId);
+            return Ok(new
+            {
+                success = true,
+                message = "Analyses retrieved successfully",
+                count = analyses.Count,
+                data = analyses
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving child analyses");
+            return StatusCode(500, new { success = false, message = ex.Message });
+        }
+    }
+
+    [HttpGet("{id}")]
+    public async Task<IActionResult> GetAnalysisById(int id)
+    {
+        try
+        {
+            var analysis = await _skinAnalysisService.GetAnalysisByIdAsync(id);
+            return Ok(new
+            {
+                success = true,
+                message = "Analysis retrieved successfully",
+                data = analysis
+            });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { success = false, message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving analysis {Id}", id);
+            return StatusCode(500, new { success = false, message = ex.Message });
+        }
+    }
+
+    [HttpDelete("{id}")]
+    public async Task<IActionResult> DeleteAnalysis(int id)
+    {
+        try
+        {
+            await _skinAnalysisService.DeleteAnalysisAsync(id);
+            return Ok(new { success = true, message = "Analysis deleted successfully" });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { success = false, message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error deleting analysis {Id}", id);
+            return StatusCode(500, new { success = false, message = ex.Message });
+        }
+    }
+
+    [HttpGet("diseases")]
+    public async Task<IActionResult> GetAllDiseases()
+    {
+        try
+        {
+            var diseases = await _skinAnalysisService.GetAllDiseasesAsync();
+            return Ok(new
+            {
+                success = true,
+                message = "Diseases retrieved successfully",
+                count = diseases.Count,
+                data = diseases
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving diseases");
+            return StatusCode(500, new { success = false, message = ex.Message });
+        }
+    }
+
+    [HttpGet("diseases/{id}")]
+    public async Task<IActionResult> GetDiseaseById(int id)
+    {
+        try
+        {
+            var disease = await _skinAnalysisService.GetDiseaseByIdAsync(id);
+            return Ok(new
+            {
+                success = true,
+                message = "Disease retrieved successfully",
+                data = disease
+            });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { success = false, message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving disease {Id}", id);
+            return StatusCode(500, new { success = false, message = ex.Message });
         }
     }
 }

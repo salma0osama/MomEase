@@ -10,10 +10,15 @@ namespace MomEase.core.Interfaces
 {
     public interface ISkinAnalysisService
     {
-        Task<SkinAnalysisResponseDto> AnalyzeNewImageAsync(SkinAnalysisRequestDto request, IFormFile image);
+        Task<SkinAnalysisResponseDto> AnalyzeNewImageAsync(
+            int userId,
+            SkinAnalysisRequestDto request,
+            IFormFile image);
         Task<List<SkinAnalysisResponseDto>> GetUserAnalysesAsync(int userId);
         Task<List<SkinAnalysisResponseDto>> GetChildAnalysesAsync(int childId);
         Task<SkinAnalysisResponseDto> GetAnalysisByIdAsync(int id);
         Task DeleteAnalysisAsync(int id);
+        Task<List<DiseaseDto>> GetAllDiseasesAsync();
+        Task<DiseaseDto> GetDiseaseByIdAsync(int id);
     }
 }

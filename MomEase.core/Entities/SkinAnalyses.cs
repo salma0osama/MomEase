@@ -23,11 +23,13 @@ namespace MomEase.core.Entities
         public string ImageUrl { get; set; }
 
         public string Result { get; set; }
+        public double? Confidence { get; set; }
 
         public int? DiseaseId { get; set; }
 
         [Required]
         public DateTime CreatedAt { get; set; } = DateTime.Now;
+
 
         // Navigation Properties
         [ForeignKey("UserId")]
