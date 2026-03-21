@@ -15,5 +15,6 @@ namespace MomEase.core.DTOS.GrowthReport
 
         // Optional: إذا كانت الأم عايزة تحدد بالشهور
         public int? LastMonths { get; set; }
+        
     }
 }
