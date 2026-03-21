@@ -35,6 +35,8 @@ namespace MomEase.core.Entities
 
         [Required]
         public DateTime CreatedAt { get; set; } = DateTime.Now;
+        [MaxLength(10)]
+        public string PreferredLanguage { get; set; } = "en";
 
         public bool IsEmailVerified { get; set; } = false;
         public string? EmailVerificationToken { get; set; }

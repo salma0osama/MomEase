@@ -13,10 +13,14 @@ namespace MomEase.api.Controllers
     public class UsersController : ControllerBase
     {
         private readonly IUserService _userService;
+        private readonly IUserRepository _userRepo;
 
-        public UsersController(IUserService userService)
+        public UsersController(
+            IUserService userService,
+            IUserRepository userRepo)
         {
             _userService = userService;
+            _userRepo = userRepo;
         }
 
         [HttpGet("profile")]
@@ -60,6 +64,58 @@ namespace MomEase.api.Controllers
                     success = true,
                     message = "Profile updated successfully",
                     data = updatedProfile
+                });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new
+                {
+                    success = false,
+                    message = ex.Message
+                });
+            }
+        }
+        [HttpPut("language-preference")]
+        public async Task<IActionResult> UpdateLanguagePreference([FromBody] UpdateLanguagePreferenceDto dto)
+        {
+            try
+            {
+                var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value);
+
+                // Validate language
+                if (dto.Language != "ar" && dto.Language != "en")
+                {
+                    return BadRequest(new
+                    {
+                        success = false,
+                        message = "Language must be 'ar' or 'en'"
+                    });
+                }
+
+                // Get user entity
+                var user = await _userRepo.GetByIdAsync(userId);
+                if (user == null)
+                {
+                    return NotFound(new
+                    {
+                        success = false,
+                        message = "User not found"
+                    });
+                }
+
+                // Update language
+                user.PreferredLanguage = dto.Language;
+                await _userRepo.UpdateAsync(user);
+
+                return Ok(new
+                {
+                    success = true,
+                    message = "Language preference updated successfully",
+                    data = new
+                    {
+                        userId = user.UserId,
+                        preferredLanguage = user.PreferredLanguage
+                    }
                 });
             }
             catch (Exception ex)
