@@ -4,7 +4,7 @@ using System;
 using System.Security.Claims;
 using System.Threading.Tasks;
 
-namespace MomEase.api.Hubs
+namespace MomEase.infra.Hubs
 {
     [Authorize]
     public class NotificationHub : Hub
