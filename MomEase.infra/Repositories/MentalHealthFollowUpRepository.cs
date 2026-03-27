@@ -38,6 +38,7 @@ namespace MomEase.infra.Repositories
         {
             var now = DateTime.Now;
             return await _context.MentalHealthFollowUps
+                .Include(f => f.User)
                 .Where(f => !f.IsCompleted
                          && !f.AssessmentReminderSent
                          && f.NextAssessmentDate <= now)
@@ -48,6 +49,7 @@ namespace MomEase.infra.Repositories
         {
             var now = DateTime.Now;
             return await _context.MentalHealthFollowUps
+                .Include(f => f.User)
                 .Where(f => !f.IsCompleted && f.NextTipDate <= now)
                 .ToListAsync();
         }
