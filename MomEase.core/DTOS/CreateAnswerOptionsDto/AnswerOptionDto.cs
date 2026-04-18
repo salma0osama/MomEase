@@ -11,7 +11,7 @@ namespace MomEase.core.DTOS.CreateAnswerOptionsDto
         public int OptionId { get; set; }
         public int QuestionId { get; set; }
         public string OptionText { get; set; }
-        public string? OptionTextAr { get; set; }
+        //public string? OptionTextAr { get; set; }
 
         public int Score { get; set; }
         public int? OptionOrder { get; set; }

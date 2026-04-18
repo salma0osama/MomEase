@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using MomEase.api.Filters;
-using MomEase.api.Hubs;
+using MomEase.infra.Hubs;
 using MomEase.core.Entities;
 using MomEase.core.Interfaces;
 using MomEase.core.Repositories;

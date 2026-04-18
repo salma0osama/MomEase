@@ -1,6 +1,7 @@
 ﻿using Microsoft.Extensions.Logging;
 using MomEase.core.Entities;
 using MomEase.core.Interfaces;
+using MomEase.infra.Helpers;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -156,23 +157,26 @@ namespace MomEase.infra.Services
                         if (tip != null)
                         {
                             // ⬅️ جيب الـ User عشان تعرف لغته
-                            var user = await _userRepo.GetByIdAsync(followUp.UserId);
-                            var userLang = user?.PreferredLanguage ?? "en";
+                            //var user = await _userRepo.GetByIdAsync(followUp.UserId);
+                            //var userLang = user?.PreferredLanguage ?? "en";
+                            var userLang = followUp.User.PreferredLanguage ?? "en";
 
                             // اختار الـ Tip Text حسب اللغة
-                            var tipText = userLang.StartsWith("ar") && !string.IsNullOrEmpty(tip.TipTextAr)
-                                ? tip.TipTextAr
-                                : tip.TipTextEnglish;
+                            //var tipText = userLang.StartsWith("ar") && !string.IsNullOrEmpty(tip.TipTextAr)
+                            //    ? tip.TipTextAr
+                            //    : tip.TipTextEnglish;
 
-                            // اختار الـ Title حسب اللغة
-                            var title = userLang.StartsWith("ar")
-                                ? "💚 نصيحة للصحة النفسية"
-                                : "💚 Mental Health Tip";
+                            //// اختار الـ Title حسب اللغة
+                            //var title = userLang.StartsWith("ar")
+                            //    ? "💚 نصيحة للصحة النفسية"
+                            //    : "💚 Mental Health Tip";
+                            string title = LanguageHelper.GetLocalized("💚نصيحة صحة نفسية", "Mental Health Tip 💚", userLang);
+                            string body = LanguageHelper.GetLocalized(tip.TipTextAr, tip.TipTextEnglish, userLang);
 
                             await _notificationService.SendRealtimeNotificationAsync(
                                 followUp.UserId,
                                 title,
-                                tipText,
+                                body,
                                 "MentalHealthTip",
                                 tip.TipId
                             );

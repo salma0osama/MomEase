@@ -90,6 +90,7 @@ namespace MomEase.infra.Services
 
                 var savedResult = await _resultRepo.CreateAsync(result);
 
+                var lang = LanguageHelper.GetLang(_httpContextAccessor);
                 // Save individual responses
                 foreach (var answer in dto.Answers)
                 {
@@ -110,7 +111,7 @@ namespace MomEase.infra.Services
                 }
 
                 // ✅ إرسال Notification حسب النتيجة
-                await SendAssessmentResultNotificationAsync(userId, scoreLevel, totalScore);
+                await SendAssessmentResultNotificationAsync(userId, scoreLevel, totalScore, lang);
 
                 // ✅ إنشاء Follow-up Plan
                 try
@@ -209,11 +210,11 @@ namespace MomEase.infra.Services
                 TotalScore = result.TotalScore,
                 LevelName = LanguageHelper.GetLocalized(
                     result.ScoreLevel?.LevelNameAr,
-                    result.ScoreLevel?.LevelName,
+                    result.ScoreLevel?.LevelName ?? "",
                     lang),
                 Advice = LanguageHelper.GetLocalized(
                     result.ScoreLevel?.AdviceAr,
-                    result.ScoreLevel?.Advice,
+                    result.ScoreLevel?.Advice ?? "",
                     lang),
                 CompletedAt = result.CompletedAt,
                 Responses = result.UserResponses?.Select(r => new UserResponseForAssessmentDto
@@ -266,7 +267,8 @@ namespace MomEase.infra.Services
         private async Task SendAssessmentResultNotificationAsync(
             int userId,
             ScoreLevel scoreLevel,
-            int totalScore)
+            int totalScore,
+            string lang)
         {
             try
             {
@@ -274,28 +276,41 @@ namespace MomEase.infra.Services
                 string body;
                 string type;
 
+                // بنشيك على الـ LevelName الأصلي (غالباً بيكون بالانجليزي في الداتابيز كـ Identifier)
                 if (scoreLevel.LevelName.Contains("Severe", StringComparison.OrdinalIgnoreCase))
                 {
-                    title = "🚨 Assessment Result - Severe";
-                    body = $"Your assessment score ({totalScore} points) indicates severe symptoms. Please contact a mental health professional immediately.";
+                    title = LanguageHelper.GetLocalized("🚨 نتيجة التقييم - حاد", "🚨 Assessment Result - Severe", lang);
+                    body = LanguageHelper.GetLocalized(
+                        $"درجة تقييمك ({totalScore} نقطة) تشير إلى وجود أعراض حادة. يرجى التواصل مع أخصائي فوراً.",
+                        $"Your assessment score ({totalScore} points) indicates severe symptoms. Please contact a professional immediately.",
+                        lang);
                     type = "AssessmentResultSevere";
                 }
                 else if (scoreLevel.LevelName.Contains("Moderate", StringComparison.OrdinalIgnoreCase))
                 {
-                    title = "⚠️ Assessment Result - Moderate";
-                    body = $"Your assessment score ({totalScore} points) indicates moderate symptoms. We recommend speaking with a mental health specialist.";
+                    title = LanguageHelper.GetLocalized("⚠️ نتيجة التقييم - متوسط", "⚠️ Assessment Result - Moderate", lang);
+                    body = LanguageHelper.GetLocalized(
+                        $"درجة تقييمك ({totalScore} نقطة) تشير إلى أعراض متوسطة. ننصحك بالتحدث مع مختص.",
+                        $"Your assessment score ({totalScore} points) indicates moderate symptoms. We recommend speaking with a specialist.",
+                        lang);
                     type = "AssessmentResultModerate";
                 }
                 else if (scoreLevel.LevelName.Contains("Mild", StringComparison.OrdinalIgnoreCase))
                 {
-                    title = "ℹ️ Assessment Result - Mild";
-                    body = $"Your assessment score ({totalScore} points) indicates mild symptoms. Take care of yourself and practice self-care.";
+                    title = LanguageHelper.GetLocalized("ℹ️ نتيجة التقييم - طفيف", "ℹ️ Assessment Result - Mild", lang);
+                    body = LanguageHelper.GetLocalized(
+                        $"درجة تقييمك ({totalScore} نقطة) تشير إلى أعراض طفيفة. اهتم بنفسك ومارس الرعاية الذاتية.",
+                        $"Your assessment score ({totalScore} points) indicates mild symptoms. Take care of yourself and practice self-care.",
+                        lang);
                     type = "AssessmentResultMild";
                 }
-                else // Minimal
+                else // Minimal / Normal
                 {
-                    title = "✅ Assessment Result - Normal";
-                    body = $"Your assessment score ({totalScore} points) is within the normal range. Keep taking care of your mental health.";
+                    title = LanguageHelper.GetLocalized("✅ نتيجة التقييم - طبيعي", "✅ Assessment Result - Normal", lang);
+                    body = LanguageHelper.GetLocalized(
+                        $"درجة تقييمك ({totalScore} نقطة) في النطاق الطبيعي. استمر في الاهتمام بصحتك النفسية.",
+                        $"Your assessment score ({totalScore} points) is within the normal range. Keep taking care of your mental health.",
+                        lang);
                     type = "AssessmentResultNormal";
                 }
 
@@ -308,15 +323,14 @@ namespace MomEase.infra.Services
                 );
 
                 _logger.LogInformation(
-                    "✅ Assessment result notification sent to user {UserId}",
-                    userId);
+                    "✅ Assessment result notification sent to user {UserId} in language {Lang}",
+                    userId, lang);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex,
                     "❌ Failed to send assessment result notification to user {UserId}",
                     userId);
-                // لا نرمي Exception - النتيجة اتحفظت بنجاح
             }
         }
     }
