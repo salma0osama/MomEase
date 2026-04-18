@@ -21,181 +21,281 @@ namespace MomEase
     {
         public static void Main(string[] args)
         {
-            // ... (كل الـ using اللي فوق زي ما هي)
-
-            var builder = WebApplication.CreateBuilder(args);
-
-            // 1. إضافة الخدمات الأساسية
-            builder.Services.AddHttpContextAccessor();
-            builder.Services.AddDbContext<MomEaseDbContext>(options =>
-                options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"),
-                b => b.MigrationsAssembly("MomEase.infra")));
-
-            builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("JWT"));
-            var jwtSettings = builder.Configuration.GetSection("JWT").Get<JwtSettings>();
-
-            // 2. إعداد الـ Authentication
-            builder.Services.AddAuthentication(options =>
+            try
             {
-                options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-                options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-            })
-            .AddJwtBearer(options =>
-            {
-                options.TokenValidationParameters = new TokenValidationParameters
+
+                var builder = WebApplication.CreateBuilder(args);
+                // Add IHttpContextAccessor for language detection
+                builder.Services.AddHttpContextAccessor();
+                // Add DbContext
+                builder.Services.AddDbContext<MomEaseDbContext>(options =>
+                    options.UseSqlServer(
+                        builder.Configuration.GetConnectionString("DefaultConnection"),
+                        b => b.MigrationsAssembly("MomEase.infra")
+                    )
+                );
+                // Configure JWT Settings
+                builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("JWT"));
+                var jwtSettings = builder.Configuration.GetSection("JWT").Get<JwtSettings>();
+
+                // Add Authentication
+                builder.Services.AddAuthentication(options =>
                 {
-                    ValidateIssuer = true,
-                    ValidateAudience = true,
-                    ValidateLifetime = true,
-                    ValidateIssuerSigningKey = true,
-                    ValidIssuer = jwtSettings.Issuer,
-                    ValidAudience = jwtSettings.Audience,
-                    IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings.SecretKey)),
-                    ClockSkew = TimeSpan.Zero
-                };
-            });
-
-            builder.Services.AddAuthorization();
-
-            // 3. توحيد سياسة الـ CORS (حل مشكلة الشاشة البيضاء)
-            builder.Services.AddCors(options =>
-            {
-                options.AddPolicy("AllowAll", policy =>
+                    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+                    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+                })
+                .AddJwtBearer(options =>
                 {
-                    policy.SetIsOriginAllowed(_ => true) // بديل آمن لـ AllowAnyOrigin يسمح بالـ Credentials
-                          .AllowAnyMethod()
-                          .AllowAnyHeader()
-                          .AllowCredentials(); // ضروري لـ SignalR
+                    options.TokenValidationParameters = new TokenValidationParameters
+                    {
+                        ValidateIssuer = true,
+                        ValidateAudience = true,
+                        ValidateLifetime = true,
+                        ValidateIssuerSigningKey = true,
+                        ValidIssuer = jwtSettings.Issuer,
+                        ValidAudience = jwtSettings.Audience,
+                        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings.SecretKey)),
+                        ClockSkew = TimeSpan.Zero
+                    };
                 });
-            });
+                builder.Services.AddAuthentication()
+                .AddFacebook(options =>
+                 {
+        options.AppId = builder.Configuration["Authentication:Facebook:AppId"];
+        options.AppSecret = builder.Configuration["Authentication:Facebook:AppSecret"];
+        options.Fields.Add("email");
+        options.Fields.Add("name");
+                  });
 
-            // 4. تسجيل كل الـ Repositories والـ Services (زي ما هي في كودك)
-            builder.Services.AddScoped<IJwtService, JwtService>();
-            builder.Services.AddScoped<IAuthService, AuthService>();
-            builder.Services.AddScoped<IEmailService, EmailService>();
-            builder.Services.AddScoped<IAuthRepository, AuthRepository>();
-            builder.Services.AddScoped<IGoogleAuthService, GoogleAuthService>();
-            builder.Services.AddScoped<IUserRepository, UserRepository>();
-            builder.Services.AddScoped<IUserService, UserService>();
-            builder.Services.AddScoped<IMotherProfileRepository, MotherProfileRepository>();
-            builder.Services.AddScoped<IMotherProfileService, MotherProfileService>();
-            builder.Services.AddScoped<IChildRepository, ChildRepository>();
-            builder.Services.AddScoped<IChildService, ChildService>();
-            builder.Services.AddScoped<IFileStorageService, FileStorageService>();
-            builder.Services.AddScoped<IGrowthRecordRepository, GrowthRecordRepository>();
-            builder.Services.AddScoped<IGrowthRecordService, GrowthRecordService>();
-            builder.Services.AddScoped<IGrowthPercentileReferenceRepository, GrowthPercentileReferenceRepository>();
-            builder.Services.AddScoped<IFeedingReferenceRepository, FeedingReferenceRepository>();
-            builder.Services.AddScoped<IFeedingRecordRepository, FeedingRecordRepository>();
-            builder.Services.AddScoped<IFeedingRecordService, FeedingRecordService>();
-            builder.Services.AddScoped<ISleepRecordRepository, SleepRecordRepository>();
-            builder.Services.AddScoped<ISleepRecordService, SleepRecordService>();
-            builder.Services.AddScoped<ISleepReferenceRepository, SleepReferenceRepository>();
-            builder.Services.AddScoped<IGrowthReportRepository, GrowthReportRepository>();
-            builder.Services.AddScoped<IGrowthReportService, GrowthReportService>();
-            builder.Services.AddScoped<IChatBotRepository, ChatBotRepository>();
-            builder.Services.AddScoped<IChatBotService, ChatBotService>();
-            builder.Services.AddHttpClient<ILlamaService, LlamaService>();
-            builder.Services.AddScoped<IArticleCategoryRepository, ArticleCategoryRepository>();
-            builder.Services.AddScoped<IArticleCategoryService, ArticleCategoryService>();
-            builder.Services.AddScoped<IArticleRepository, ArticleRepository>();
-            builder.Services.AddScoped<IArticleService, ArticleService>();
-            builder.Services.AddScoped<ISearchHistoryService, SearchHistoryService>();
-            builder.Services.AddScoped<ISearchHistoryRepository, SearchHistoryRepository>();
-            builder.Services.AddScoped<ISavedArticleService, SavedArticleService>();
-            builder.Services.AddScoped<ISavedArticleRepository, SavedArticleRepository>();
-            builder.Services.AddScoped<IAssessmentRepository, AssessmentRepository>();
-            builder.Services.AddScoped<IAssessmentService, AssessmentService>();
-            builder.Services.AddScoped<IQuestionRepository, QuestionRepository>();
-            builder.Services.AddScoped<IQuestionService, QuestionService>();
-            builder.Services.AddScoped<IAnswerOptionRepository, AnswerOptionRepository>();
-            builder.Services.AddScoped<IAnswerOptionService, AnswerOptionService>();
-            builder.Services.AddScoped<IScoreLevelRepository, ScoreLevelRepository>();
-            builder.Services.AddScoped<IScoreLevelService, ScoreLevelService>();
-            builder.Services.AddScoped<IAssessmentResultRepository, AssessmentResultRepository>();
-            builder.Services.AddScoped<IUserResponseRepository, UserResponseRepository>();
-            builder.Services.AddScoped<IUserResponseService, UserResponseService>();
-            builder.Services.AddScoped<ISkinAnalysisRepository, SkinAnalysisRepository>();
-            builder.Services.AddScoped<IDiseaseRepository, DiseaseRepository>();
-            builder.Services.AddScoped<ISkinAnalysisService, SkinAnalysisService>();
-            builder.Services.AddScoped<IVaccinationRepository, VaccinationRepository>();
-            builder.Services.AddScoped<IVaccinationService, VaccinationService>();
-            builder.Services.AddScoped<ISkinAnalysisAIService, SkinAnalysisAIService>();
-            builder.Services.AddHttpClient();
-            builder.Services.AddScoped<ICommunityRepository, CommunityRepository>();
-            builder.Services.AddScoped<ICommunityService, CommunityService>();
-            builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
-            builder.Services.AddScoped<IPushNotificationService, PushNotificationService>();
-            builder.Services.AddScoped<INotificationService, NotificationService>();
-            builder.Services.AddScoped<IDeviceTokenRepository, DeviceTokenRepository>();
-            builder.Services.AddScoped<IMentalHealthFollowUpRepository, MentalHealthFollowUpRepository>();
-            builder.Services.AddScoped<IMentalHealthTipRepository, MentalHealthTipRepository>();
-            builder.Services.AddScoped<IMentalHealthFollowUpService, MentalHealthFollowUpService>();
-            builder.Services.AddHostedService<MentalHealthFollowUpBackgroundService>();
-            builder.Services.AddScoped<IAssessmentResultService, AssessmentResultService>();
+                builder.Services.AddAuthorization();
 
-            builder.Services.AddControllers().AddJsonOptions(options =>
-            {
-                options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
-            });
 
-            builder.Services.AddEndpointsApiExplorer();
-            builder.Services.AddSwaggerGen(c =>
-            {
-                c.SwaggerDoc("v1", new OpenApiInfo { Title = "MomEase API", Version = "v1" });
-                c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+
+                // Add services to the container.
+
+                //Authentication Repository & Service
+                builder.Services.AddScoped<IJwtService, JwtService>();
+                builder.Services.AddScoped<IAuthService, AuthService>();
+                builder.Services.AddScoped<IEmailService, EmailService>();
+                builder.Services.AddScoped<IAuthRepository, AuthRepository>();
+                builder.Services.AddScoped<IGoogleAuthService, GoogleAuthService>();
+
+                // user Repository & Service
+                builder.Services.AddScoped<IUserRepository, UserRepository>();
+                builder.Services.AddScoped<IUserService, UserService>();
+
+                // Mother Profile Repository & Service
+                builder.Services.AddScoped<IMotherProfileRepository, MotherProfileRepository>();
+                builder.Services.AddScoped<IMotherProfileService, MotherProfileService>();
+
+                // Child Repository & Service
+                builder.Services.AddScoped<IChildRepository, ChildRepository>();
+                builder.Services.AddScoped<IChildService, ChildService>();
+                builder.Services.AddScoped<IFileStorageService, FileStorageService>();
+
+                // Growth Record Repository & Service
+                builder.Services.AddScoped<IGrowthRecordRepository, GrowthRecordRepository>();
+                builder.Services.AddScoped<IGrowthRecordService, GrowthRecordService>();
+                builder.Services.AddScoped<IGrowthPercentileReferenceRepository, GrowthPercentileReferenceRepository>();
+                // Feeding Record Repository & Service
+                builder.Services.AddScoped<IFeedingReferenceRepository, FeedingReferenceRepository>();
+                builder.Services.AddScoped<IFeedingRecordRepository, FeedingRecordRepository>();
+
+                // Feeding Tracking Services
+                builder.Services.AddScoped<IFeedingRecordService, FeedingRecordService>();
+
+                //sleep record Repository & Service
+                builder.Services.AddScoped<ISleepRecordRepository, SleepRecordRepository>();
+                builder.Services.AddScoped<ISleepRecordService, SleepRecordService>();
+
+                // Sleep Reference Repository
+                builder.Services.AddScoped<ISleepReferenceRepository, SleepReferenceRepository>();
+
+                //GrowthReport Repository & Service
+                builder.Services.AddScoped<IGrowthReportRepository, GrowthReportRepository>();
+                builder.Services.AddScoped<IGrowthReportService, GrowthReportService>();
+                // ChatBot Services
+                builder.Services.AddScoped<IChatBotRepository, ChatBotRepository>();
+                builder.Services.AddScoped<IChatBotService, ChatBotService>();
+                builder.Services.AddHttpClient<ILlamaService, LlamaService>();
+
+                // Article Category Repository & Service
+                builder.Services.AddScoped<IArticleCategoryRepository, ArticleCategoryRepository>();
+                builder.Services.AddScoped<IArticleCategoryService, ArticleCategoryService>();
+
+                // Article Repository & Service
+                builder.Services.AddScoped<IArticleRepository, ArticleRepository>();
+                builder.Services.AddScoped<IArticleService, ArticleService>();
+                builder.Services.AddScoped<ISearchHistoryService, SearchHistoryService>();
+                builder.Services.AddScoped<ISearchHistoryRepository, SearchHistoryRepository>();
+                builder.Services.AddScoped<ISavedArticleService, SavedArticleService>();
+                builder.Services.AddScoped<ISavedArticleRepository, SavedArticleRepository>();
+
+                // Assessment Repository & Service
+                builder.Services.AddScoped<IAssessmentRepository, AssessmentRepository>();
+                builder.Services.AddScoped<IAssessmentService, AssessmentService>();
+
+                // Question Repository & Service
+                builder.Services.AddScoped<IQuestionRepository, QuestionRepository>();
+                builder.Services.AddScoped<IQuestionService, QuestionService>();
+
+                // Answer Option Repository & Service
+                builder.Services.AddScoped<IAnswerOptionRepository, AnswerOptionRepository>();
+                builder.Services.AddScoped<IAnswerOptionService, AnswerOptionService>();
+
+                // Score Level Repository & Service
+                builder.Services.AddScoped<IScoreLevelRepository, ScoreLevelRepository>();
+                builder.Services.AddScoped<IScoreLevelService, ScoreLevelService>();
+
+                // Assessment Result Repository & Service
+                builder.Services.AddScoped<IAssessmentResultRepository, AssessmentResultRepository>();
+
+                // User Response Repository & Service
+                builder.Services.AddScoped<IUserResponseRepository, UserResponseRepository>();
+                builder.Services.AddScoped<IUserResponseService, UserResponseService>();
+
+                // Skin Analysis Services
+                builder.Services.AddScoped<ISkinAnalysisRepository, SkinAnalysisRepository>();
+                builder.Services.AddScoped<IDiseaseRepository, DiseaseRepository>();
+                builder.Services.AddScoped<ISkinAnalysisService, SkinAnalysisService>();
+                // Vaccination
+                builder.Services.AddScoped<IVaccinationRepository, VaccinationRepository>();
+                builder.Services.AddScoped<IVaccinationService, VaccinationService>();
+
+
+                builder.Services.AddScoped<ISkinAnalysisAIService, SkinAnalysisAIService>();
+                builder.Services.AddHttpClient();
+
+                builder.Services.AddScoped<ICommunityRepository, CommunityRepository>();
+                builder.Services.AddScoped<ICommunityService, CommunityService>();
+
+
+                builder.Services.AddControllers().AddJsonOptions(options =>
                 {
-                    Description = "JWT Authorization header using the Bearer scheme.",
-                    Name = "Authorization",
-                    In = ParameterLocation.Header,
-                    Type = SecuritySchemeType.ApiKey,
-                    Scheme = "Bearer"
+                    // ✅ تحويل كل الـ Enums لـ strings
+                    options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
                 });
-                c.AddSecurityRequirement(new OpenApiSecurityRequirement {
-        { new OpenApiSecurityScheme { Reference = new OpenApiReference { Type = ReferenceType.SecurityScheme, Id = "Bearer" } }, new string[] {} }
-    });
-                c.OperationFilter<SwaggerLanguageHeaderFilter>();
-            });
 
-            builder.Services.AddSignalR();
 
-            var app = builder.Build();
-            // ترتيب الـ Middlewares (مهم جداً)
-            app.UseDeveloperExceptionPage(); // نفعله دائماً مؤقتاً عشان نشوف لو فيه خطأ
+                builder.Services.AddControllers();
+                // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
+                //builder.Services.AddEndpointsApiExplorer();
+                //builder.Services.AddSwaggerGen();
 
-            app.UseSwagger();
-            app.UseSwaggerUI(c =>
-            {
-                // المسار ده هو الأصح والأنسب للـ Local وللسيرفر (بدون نقطة وبدون تكرار)
-                c.SwaggerEndpoint("/swagger/v1/swagger.json", "PostCare API V1");
-
-                // عشان يفتح معاكي بكلمة swagger زي ما طلبتي
-                c.RoutePrefix = "swagger";
-            });
-
-            app.UseHttpsRedirection();
-            app.UseStaticFiles();
-            app.UseRouting();
-            app.Use(async (context, next) =>
-            {
-                if (context.Request.Method == "OPTIONS")
+                // Add Swagger with JWT Support
+                builder.Services.AddEndpointsApiExplorer();
+                builder.Services.AddSwaggerGen(c =>
                 {
-                    context.Response.StatusCode = 200;
-                    await context.Response.CompleteAsync();
-                    return;
+                    c.OperationFilter<SwaggerLanguageHeaderFilter>(); // ← أضف السطر ده
+
+                    c.SwaggerDoc("v1", new OpenApiInfo { Title = "MomEase API", Version = "v1" });
+
+                    c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+                    {
+                        Description = "JWT Authorization header using the Bearer scheme. Enter 'Bearer' [space] and then your token",
+                        Name = "Authorization",
+                        In = ParameterLocation.Header,
+                        Type = SecuritySchemeType.ApiKey,
+                        Scheme = "Bearer"
+                    });
+
+                    c.AddSecurityRequirement(new OpenApiSecurityRequirement {
+                    {
+                         new OpenApiSecurityScheme{
+                            Reference = new OpenApiReference
+                            {
+                                 Type = ReferenceType.SecurityScheme,
+                                    Id = "Bearer"
+                              }
+                         },
+                      new string[] {}
+                       }
+                           });
+                    c.OperationFilter<SwaggerLanguageHeaderFilter>();
+                });
+
+                builder.Services.AddCors(options =>
+                {
+                    options.AddPolicy("AllowAll",
+                        builder => builder.AllowAnyOrigin()
+                                          .AllowAnyMethod()
+                                          .AllowAnyHeader());
+                });
+
+                // ✅ إضافة SignalR
+                builder.Services.AddSignalR();
+
+                // ✅ Register Notification Services
+                builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
+                builder.Services.AddScoped<IPushNotificationService, PushNotificationService>();
+                builder.Services.AddScoped<INotificationService, NotificationService>();
+
+
+                // Device Tokens Repository
+                builder.Services.AddScoped<IDeviceTokenRepository, DeviceTokenRepository>();
+
+                // ✅ Mental Health Follow-up Services
+                builder.Services.AddScoped<IMentalHealthFollowUpRepository, MentalHealthFollowUpRepository>();
+                builder.Services.AddScoped<IMentalHealthTipRepository, MentalHealthTipRepository>();
+                builder.Services.AddScoped<IMentalHealthFollowUpService, MentalHealthFollowUpService>();
+
+                // ✅ Background Service (Auto Scheduler)
+                builder.Services.AddHostedService<MentalHealthFollowUpBackgroundService>();
+
+                builder.Services.AddScoped<IAssessmentResultService, AssessmentResultService>();
+
+
+                // ✅ CORS (مهم لـ SignalR)
+                builder.Services.AddCors(options =>
+                {
+                    options.AddPolicy("AllowAll", policy =>
+                    {
+                        policy.WithOrigins("http://localhost:3000", "http://localhost:4200") // Frontend URLs
+                              .AllowAnyHeader()
+                              .AllowAnyMethod()
+                              .AllowCredentials(); // ⬅️ مهم لـ SignalR
+                    });
+                });
+
+
+                var app = builder.Build();
+                //Assessment Seeder
+                using (var scope = app.Services.CreateScope())
+                {
+                    var context = scope.ServiceProvider.GetRequiredService<MomEaseDbContext>();
+                    AssessmentSeeder.SeedAsync(context).GetAwaiter().GetResult();
                 }
+                // Configure the HTTP request pipeline.
+                //if (app.Environment.IsDevelopment())
+                //{
+                app.UseSwagger();
+                app.UseSwaggerUI();
+                //}
 
-                await next();
-            });
-            app.UseCors("AllowAll"); // لازم بعد UseRouting وقبل UseAuthentication
+                app.UseHttpsRedirection();
+                app.UseStaticFiles();
 
-            app.UseAuthentication();
-            app.UseAuthorization();
+                app.UseRouting();
 
-            app.MapControllers();
-            app.MapHub<NotificationHub>("/notificationHub");
+                app.UseCors("AllowAll");
 
-            app.Run();
+                app.UseAuthentication();
+                app.UseAuthorization();
+
+
+                app.MapControllers();
+
+                // ✅ Map SignalR Hub
+                app.MapHub<NotificationHub>("/notificationHub");
+
+                app.Run();
+            }
+            catch (Exception ex)
+            {
+               
+                Console.WriteLine(ex.ToString());
+                throw;
+            }
         }
     }
 }

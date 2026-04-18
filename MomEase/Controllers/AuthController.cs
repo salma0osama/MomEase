@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using MomEase.core.DTOS;
 using MomEase.core.Interfaces;
 using System.Security.Claims;
+using Microsoft.Extensions.Logging;
 
 namespace MomEase.api.Controllers
 {
@@ -12,10 +13,12 @@ namespace MomEase.api.Controllers
     public class AuthController : ControllerBase
     {
         private readonly IAuthService _authService;
+        private readonly ILogger<AuthController> _logger;
 
-        public AuthController(IAuthService authService)
+        public AuthController(IAuthService authService, ILogger<AuthController> logger)
         {
             _authService = authService;
+            _logger = logger;
         }
 
         [HttpPost("register")]
@@ -305,6 +308,36 @@ namespace MomEase.api.Controllers
                 {
                     success = false,
                     message = ex.Message
+                });
+            }
+        }
+        /// <summary>Login with Facebook</summary>
+        [HttpPost("facebook")]
+        [AllowAnonymous]
+        public async Task<IActionResult> FacebookLogin([FromBody] FacebookAuthDto dto)
+        {
+            try
+            {
+                var result = await _authService.FacebookLoginAsync(dto.AccessToken);
+                return Ok(new
+                {
+                    success = true,
+                    message = "Login successful",
+                    data = result
+                });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { success = false, message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error during Facebook login");
+                return StatusCode(500, new
+                {
+                    success = false,
+                    message = ex.Message,
+                    inner = ex.InnerException?.Message
                 });
             }
         }

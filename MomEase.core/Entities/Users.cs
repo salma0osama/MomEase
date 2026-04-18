@@ -26,7 +26,7 @@ namespace MomEase.core.Entities
         public string Password { get; set; }
 
         [MaxLength(20)]
-        public string Phone { get; set; }
+        public string? Phone { get; set; }
 
         public int? Age { get; set; }
 
