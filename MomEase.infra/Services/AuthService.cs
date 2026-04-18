@@ -12,6 +12,9 @@ using BCrypt.Net;
 using MomEase.infra.Data;
 using MomEase.infra.Data;
 using MomEase.core.DTOS.MotherProfileDto;
+using MomEase.infra.Repositories;
+using System.Text.Json;
+using Microsoft.Extensions.Logging;
 
 
 namespace MomEase.infra.Services
@@ -23,19 +26,25 @@ namespace MomEase.infra.Services
         private readonly IEmailService _emailService;
         private readonly IMotherProfileService _motherProfileService;
         private readonly IGoogleAuthService _googleAuthService;
+        private readonly IMotherProfileRepository _motherProfileRepository;
+        private readonly ILogger<AuthService> _logger;
 
         public AuthService(
             IAuthRepository authRepository,
             IJwtService jwtService,
             IEmailService emailService,IMotherProfileService motherProfileService,
-            IGoogleAuthService googleAuthService)
-            
+            IGoogleAuthService googleAuthService,
+            IMotherProfileRepository motherProfileRepository, 
+            ILogger<AuthService> logger) 
+
         {
             _authRepository = authRepository;
             _jwtService = jwtService;
             _emailService = emailService;
             _motherProfileService=motherProfileService;
             _googleAuthService = googleAuthService;
+            _motherProfileRepository = motherProfileRepository;
+            _logger = logger;
         }
 
         public async Task<AuthResponseDto> RegisterAsync(RegisterDto registerDto, string ipAddress)
@@ -467,7 +476,94 @@ namespace MomEase.infra.Services
                 throw;
             }
         }
+        public async Task<AuthResponseDto> FacebookLoginAsync(string accessToken)
+        {
+            try
+            {
+                var httpClient = new HttpClient();
+                var response = await httpClient.GetStringAsync(
+    $"https://graph.facebook.com/me?fields=id,name,email,first_name,last_name&access_token={accessToken}");
 
+                var facebookUser = JsonSerializer.Deserialize<FacebookUserInfo>(response,
+                    new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+                // التعديل هنا: نتحقق من الـ Id ونعالج نقص الإيميل
+                if (facebookUser == null)
+                    throw new InvalidOperationException("Failed to get Facebook user info");
+
+                var email = !string.IsNullOrEmpty(facebookUser.Email)
+                ? facebookUser.Email
+                : $"fb_{facebookUser.Id}@facebook.com";
+
+                var existingUser = await _authRepository.GetUserByEmailAsync(email);
+               
+                if (existingUser != null)
+                {
+                    var token = _jwtService.GenerateAccessToken(existingUser);
+                    var refreshToken = _jwtService.GenerateRefreshToken();
+                    await _jwtService.CreateRefreshTokenAsync(existingUser.UserId, refreshToken, "");
+
+                    return new AuthResponseDto
+                    {
+                        AccessToken = token,
+                        RefreshToken = refreshToken,
+                        UserId = existingUser.UserId,
+                        Email = existingUser.Email,
+                        FirstName = existingUser.FirstName,
+                        LastName = existingUser.LastName,
+                        Role = existingUser.Role.ToString(),
+                        AccessTokenExpiration = DateTime.Now.AddMinutes(120),
+                        RefreshTokenExpiration = DateTime.Now.AddDays(14)
+                    };
+                }
+
+                var nameParts = facebookUser.Name.Split(' ', 2);
+                var newUser = new Users
+                {
+                    FirstName = nameParts[0],
+                    LastName = nameParts.Length > 1 ? nameParts[1] : "",
+                    Email = email,
+                    Password = BCrypt.Net.BCrypt.HashPassword(Guid.NewGuid().ToString()),
+                    Role = Role.MOTHER,
+                    IsEmailVerified = true,
+                    IsExternalAuth = true,
+                    GoogleId = facebookUser.Id,
+                    CreatedAt = DateTime.Now
+                };
+
+                await _authRepository.AddUserAsync(newUser);
+                await _authRepository.SaveChangesAsync();
+
+                var motherProfile = new MotherProfile
+                {
+                    UserId = newUser.UserId,
+                    IsFirstTimeMother = false,
+                    NumberOfChildren = 0
+                };
+                await _motherProfileRepository.AddAsync(motherProfile);
+                await _authRepository.SaveChangesAsync();
+
+                var newToken = _jwtService.GenerateAccessToken(newUser);
+                var newRefreshToken = _jwtService.GenerateRefreshToken();
+                await _jwtService.CreateRefreshTokenAsync(newUser.UserId, newRefreshToken, "");
+
+                return new AuthResponseDto
+                {
+                    AccessToken = newToken,
+                    RefreshToken = newRefreshToken,
+                    UserId = newUser.UserId,
+                    Email = newUser.Email,
+                    FirstName = newUser.FirstName,
+                    LastName = newUser.LastName,
+                    Role = newUser.Role.ToString()
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error during Facebook login");
+                throw;
+            }
+        }
         // Helper Method
         private string GenerateOtpCode()
         {
