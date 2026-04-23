@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using MomEase.core.DTOS.NotificationDto;
 using MomEase.core.Entities;
 using MomEase.core.Interfaces;
+using MomEase.infra.Hubs;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -14,13 +15,13 @@ namespace MomEase.infra.Services
     public class NotificationService : INotificationService
     {
         private readonly INotificationRepository _repo;
-        private readonly IHubContext<Microsoft.AspNetCore.SignalR.Hub> _hubContext;
+        private readonly IHubContext<NotificationHub> _hubContext;
         private readonly IPushNotificationService _pushService;
         private readonly ILogger<NotificationService> _logger;
 
         public NotificationService(
             INotificationRepository repo,
-            IHubContext<Microsoft.AspNetCore.SignalR.Hub> hubContext,
+            IHubContext<NotificationHub> hubContext,
             IPushNotificationService pushService,
             ILogger<NotificationService> logger)
         {

@@ -64,7 +64,7 @@ namespace MomEase.infra.Repositories
                 SentAt = DateTime.Now
             };
 
-            _context.SentMentalHealthTips.Add(sentTip);
+            await _context.SentMentalHealthTips.AddAsync(sentTip);
             await _context.SaveChangesAsync();
         }
     }
