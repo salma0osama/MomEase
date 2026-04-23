@@ -14,7 +14,7 @@ namespace MomEase.infra.Services
     {
         private readonly IServiceProvider _serviceProvider;
         private readonly ILogger<MentalHealthFollowUpBackgroundService> _logger;
-        private readonly TimeSpan _checkInterval = TimeSpan.FromSeconds(30); // كل ساعة
+        private readonly TimeSpan _checkInterval = TimeSpan.FromHours(1); // كل ساعة
 
         public MentalHealthFollowUpBackgroundService(
             IServiceProvider serviceProvider,
