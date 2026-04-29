@@ -10,7 +10,9 @@ namespace MomEase.core.Interfaces
         Task<CommunityPostDto> GetPostByIdAsync(int postId, int currentUserId);
         Task<CommunityPostDto> CreatePostAsync(int userId, CreatePostDto dto);
         Task<CommunityPostDto> UpdatePostAsync(int postId, int userId, UpdatePostDto dto);
-        Task DeletePostAsync(int postId, int userId);
+        //Task DeletePostAsync(int postId, int userId);
+        Task DeletePostAsync(int postId, int userId, bool isAdmin = false);
+
         Task<PostsPagedDto> GetPostsByUserIdAsync(int targetUserId, int pageNumber,
             int pageSize, int currentUserId);
         Task<PostsPagedDto> GetMyPostsAsync(int userId, int pageNumber, int pageSize);
@@ -42,7 +44,6 @@ namespace MomEase.core.Interfaces
         Task<PostReportDto> GetReportByIdAsync(int reportId);
         Task<List<PostReportDto>> GetPendingReportsAsync();
         Task<List<PostReportDto>> GetReviewedReportsAsync();
-        //Task<PostReportDto> ReviewReportAsync(int reportId, int adminId);
         Task<PostReportDto> ReviewReportAsync(int reportId, int adminId, ReviewReportDto dto);
     }
 }

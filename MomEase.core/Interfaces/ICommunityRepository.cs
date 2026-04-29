@@ -47,5 +47,8 @@ namespace MomEase.core.Interfaces
         Task<List<PostReports>> GetPendingReportsAsync();
         Task<List<PostReports>> GetReviewedReportsAsync();
         Task<PostReports> UpdateReportAsync(PostReports report);
+
+        Task<CommunityPosts?> GetPostByIdNoTrackingAsync(int postId);
+        Task UpdateReportFields(int reportId, int adminId, string action, string? adminNote);
     }
 }
