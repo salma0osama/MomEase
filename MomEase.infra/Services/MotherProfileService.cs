@@ -18,15 +18,17 @@ namespace MomEase.infra.Services
         private readonly IMotherProfileRepository _motherProfileRepository;
         private readonly IAuthRepository _authRepository;
         private readonly IFileStorageService _fileStorageService;
-
+        private readonly IChildRepository _childRepository;
         public MotherProfileService(
             IMotherProfileRepository motherProfileRepository,
             IAuthRepository authRepository,
-            IFileStorageService fileStorageService)
+            IFileStorageService fileStorageService,
+            IChildRepository childRepository)
         {
             _motherProfileRepository = motherProfileRepository ?? throw new ArgumentNullException(nameof(motherProfileRepository));
             _authRepository = authRepository ?? throw new ArgumentNullException(nameof(authRepository));
             _fileStorageService = fileStorageService;
+            _childRepository = childRepository;
         }
 
         public async Task<MotherProfileResponseDto> CreateMotherProfileAsync(CreateMotherProfileDto createDto)
@@ -94,7 +96,7 @@ namespace MomEase.infra.Services
                     LastName = motherProfile.User.LastName,
                     Email = motherProfile.User.Email,
                     IsFirstTimeMother = motherProfile.IsFirstTimeMother,
-                    NumberOfChildren = motherProfile.NumberOfChildren,
+                    NumberOfChildren = await _childRepository.GetUserChildrenCountAsync(userId),
                     MentalHealthStatus = motherProfile.MentalHealthStatus?.ToString(),
                     HealthStatus = motherProfile.HealthStatus?.ToString(),
                     CreatedAt = motherProfile.User.CreatedAt
