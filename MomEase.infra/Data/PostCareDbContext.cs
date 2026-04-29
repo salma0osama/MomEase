@@ -268,7 +268,7 @@ namespace MomEase.infra.Data
                 entity.HasOne(e => e.Post)
                     .WithMany(p => p.PostReports)
                     .HasForeignKey(e => e.PostId)
-                    .OnDelete(DeleteBehavior.Cascade);
+                    .OnDelete(DeleteBehavior.SetNull);
 
                 entity.HasOne(e => e.Reporter)
                     .WithMany(u => u.SubmittedReports)

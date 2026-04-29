@@ -121,8 +121,9 @@ namespace MomEase.infra.Repositories
         {
             try
             {
-                _context.CommunityPosts.Remove(post);
-                await _context.SaveChangesAsync();
+                await _context.CommunityPosts
+             .Where(p => p.PostId == post.PostId)
+             .ExecuteDeleteAsync();
             }
             catch (Exception ex)
             {
@@ -469,9 +470,11 @@ namespace MomEase.infra.Repositories
             {
                 return await _context.PostReports
                     .Include(r => r.Reporter)
-                    .Include(r => r.Post)
+                    //.Include(r => r.Post)
                     .Include(r => r.ReviewedBy)
-                    .FirstOrDefaultAsync(r => r.ReportId == reportId);
+                     .AsNoTracking()        
+
+                     .FirstOrDefaultAsync(r => r.ReportId == reportId);
             }
             catch (Exception ex)
             {
@@ -521,13 +524,51 @@ namespace MomEase.infra.Repositories
         {
             try
             {
-                _context.PostReports.Update(report);
+                _context.PostReports.Attach(report);
+                _context.Entry(report).State = EntityState.Modified;
                 await _context.SaveChangesAsync();
                 return report;
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error updating report {ReportId}", report.ReportId);
+                throw;
+            }
+        }
+        public async Task<CommunityPosts?> GetPostByIdNoTrackingAsync(int postId)
+        {
+            try
+            {
+                return await _context.CommunityPosts
+                    .Include(p => p.User)
+                    .Include(p => p.PostMedia.OrderBy(m => m.Order))
+                    .Include(p => p.PostComments)
+                    .Include(p => p.PostReactions)
+                    .AsNoTracking()   
+                    .FirstOrDefaultAsync(p => p.PostId == postId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving post {PostId}", postId);
+                throw;
+            }
+        }
+        public async Task UpdateReportFields(
+    int reportId, int adminId, string action, string? adminNote)
+        {
+            try
+            {
+                await _context.PostReports
+                    .Where(r => r.ReportId == reportId)
+                    .ExecuteUpdateAsync(s => s
+                        .SetProperty(r => r.ReviewedById, adminId)
+                        .SetProperty(r => r.ReviewedAt, DateTime.Now)
+                        .SetProperty(r => r.Action, action)
+                        .SetProperty(r => r.AdminNote, adminNote));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating report fields {ReportId}", reportId);
                 throw;
             }
         }

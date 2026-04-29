@@ -237,7 +237,7 @@ namespace MomEase.infra.Services
             }
         }
 
-        public async Task DeletePostAsync(int postId, int userId)
+        public async Task DeletePostAsync(int postId, int userId, bool isAdmin = false)
         {
             try
             {
@@ -245,9 +245,10 @@ namespace MomEase.infra.Services
                 if (post == null)
                     throw new KeyNotFoundException("Post not found");
 
-                if (post.UserId != userId)
+                // الأدمن يقدر يمسح أي بوست
+                if (!isAdmin && post.UserId != userId)
                     throw new UnauthorizedAccessException(
-                        "You are not authorized to delete this post");
+                        "You are not authorized to delete this post"); ;
 
                 // Delete media files from storage
                 if (post.PostMedia != null && post.PostMedia.Any())
@@ -762,7 +763,7 @@ namespace MomEase.infra.Services
                 return new PostReportDto
                 {
                     ReportId = added.ReportId,
-                    PostId = added.PostId,
+                    PostId = added.PostId ?? 0,
                     ReporterId = added.ReporterId,
                     ReporterName = $"{post.User?.FirstName} {post.User?.LastName}",
                     Reason = added.Reason,
@@ -854,7 +855,9 @@ namespace MomEase.infra.Services
                     throw new ArgumentException(
                         "Invalid action. Must be: Dismiss, DeletePost, Warn");
 
-                var post = await _communityRepository.GetPostByIdAsync(report.PostId);
+                var post = await _communityRepository.GetPostByIdNoTrackingAsync(report.PostId ?? 0 );
+                if (dto.Action == "DeletePost" && post == null)
+                    throw new KeyNotFoundException("Post not found or already deleted");
 
                 switch (dto.Action)
                 {
@@ -890,6 +893,13 @@ namespace MomEase.infra.Services
                             {
                                 _logger.LogError(ex, "Failed to send post deletion notification");
                             }
+                        }
+                        else
+                        {
+                            // ✅ البوست اتحذف قبل كده — نكمل بدون error
+                            _logger.LogWarning(
+                                "Post {PostId} already deleted when reviewing report {ReportId}",
+                                report.PostId, reportId);
                         }
                         break;
 
@@ -927,20 +937,31 @@ namespace MomEase.infra.Services
                         break;
                 }
 
-                report.ReviewedById = adminId;
-                report.ReviewedAt = DateTime.Now;
-                report.Action = dto.Action;
-                report.AdminNote = dto.AdminNote?.Trim();
+                await _communityRepository.UpdateReportFields(
+    reportId, adminId, dto.Action, dto.AdminNote?.Trim());
 
-                await _communityRepository.UpdateReportAsync(report);
-
+                // ✅ جيبي الـ report بدون Include للـ Post عشان ممكن يكون اتحذف
                 var freshReport = await _communityRepository.GetReportByIdAsync(reportId);
 
-                _logger.LogInformation(
-                    "Report {ReportId} reviewed by admin {AdminId} with action {Action}",
-                    reportId, adminId, dto.Action);
-
-                return MapToReportDto(freshReport!);
+                // ✅ لو البوست اتحذف return مباشرة بدون Post data
+                return new PostReportDto
+                {
+                    ReportId = reportId,
+                    PostId = report.PostId??0,
+                    ReporterId = report.ReporterId,
+                    ReporterName = freshReport?.Reporter != null
+                        ? $"{freshReport.Reporter.FirstName} {freshReport.Reporter.LastName}"
+                        : "",
+                    Reason = report.Reason,
+                    ReviewedByName = freshReport?.ReviewedBy != null
+                        ? $"{freshReport.ReviewedBy.FirstName} {freshReport.ReviewedBy.LastName}"
+                        : "",
+                    Action = dto.Action,
+                    AdminNote = dto.AdminNote?.Trim(),
+                    CreatedAt = report.CreatedAt,
+                    ReviewedAt = DateTime.Now,
+                    IsReviewed = true
+                };
             }
             catch (Exception ex)
             {
@@ -1042,7 +1063,7 @@ namespace MomEase.infra.Services
             return new PostReportDto
             {
                 ReportId = report.ReportId,
-                PostId = report.PostId,
+                PostId = report.PostId??0,
                 ReporterId = report.ReporterId,
                 ReporterName = report.Reporter != null
                     ? $"{report.Reporter.FirstName} {report.Reporter.LastName}"
