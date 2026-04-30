@@ -26,5 +26,6 @@ namespace MomEase.core.DTOS.MotherProfileDto
         public MentalHealthStatus? MentalHealthStatus { get; set; }
 
         public HealthStatus? HealthStatus { get; set; }
+
     }
 }
