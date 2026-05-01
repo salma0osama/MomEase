@@ -70,6 +70,7 @@ namespace MomEase.infra.Services
                 SavedArticleId = s.SavedArticleId,
                 ArticleId = s.Article.ArticleId,
                 Title = LanguageHelper.GetLocalized(s.Article.TitleAr, s.Article.Title, lang),             // ✅
+                Content = LanguageHelper.GetLocalized(s.Article.ContentAr, s.Article.Content, lang), // ✅ 
                 ImageUrl = s.Article.ImageUrl,
                 CategoryName = LanguageHelper.GetLocalized(s.Article.Category?.NameAr, s.Article.Category?.Name, lang), // ✅
                 ReadingTimeMinutes = CalculateReadingTime(
