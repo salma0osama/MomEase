@@ -70,7 +70,7 @@ namespace MomEase.infra.Services
                 SavedArticleId = s.SavedArticleId,
                 ArticleId = s.Article.ArticleId,
                 Title = LanguageHelper.GetLocalized(s.Article.TitleAr, s.Article.Title, lang),             // ✅
-                Content = LanguageHelper.GetLocalized(s.Article.ContentAr, s.Article.Content, lang), // ✅ 
+                ShortDescription = GetShortDescription(LanguageHelper.GetLocalized(s.Article.ContentAr, s.Article.Content, lang)),
                 ImageUrl = s.Article.ImageUrl,
                 CategoryName = LanguageHelper.GetLocalized(s.Article.Category?.NameAr, s.Article.Category?.Name, lang), // ✅
                 ReadingTimeMinutes = CalculateReadingTime(
@@ -100,6 +100,15 @@ namespace MomEase.infra.Services
         private string GetLang()
         {
             return LanguageHelper.GetLang(_httpContextAccessor);
+        }
+        private string GetShortDescription(string content)
+        {
+            if (string.IsNullOrEmpty(content))
+                return string.Empty;
+
+            return content.Length <= 150
+                ? content
+                : content.Substring(0, 150) + "...";
         }
     }
 }
