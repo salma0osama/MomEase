@@ -11,7 +11,7 @@ namespace MomEase.core.DTOS.ArticlesDTOs
         public int SavedArticleId { get; set; }
         public int ArticleId { get; set; }
         public string Title { get; set; }
-        public string? Content { get; set; }
+        public string ShortDescription { get; set; }
         public string ImageUrl { get; set; }
         public string CategoryName { get; set; }
         public int ReadingTimeMinutes { get; set; }
