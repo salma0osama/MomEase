@@ -1017,6 +1017,7 @@ namespace MomEase.infra.Services
                 UserPhoto = post.User?.MotherProfile?.ProfilePictureUrl,
                 Text = post.Text,
                 Media = post.PostMedia?.OrderBy(m => m.Order)
+
     .Select(m => new PostMediaDto
     {
         MediaId = m.MediaId,
@@ -1028,7 +1029,9 @@ namespace MomEase.infra.Services
                 ReactionsCount = post.PostReactions?.Count ?? 0,
                 MyReaction = myReaction?.ReactionType.ToString(),
                 CreatedAt = post.CreatedAt,
-                UpdatedAt = post.UpdatedAt
+                UpdatedAt = post.UpdatedAt,
+                IsSaved = post.SavedPosts?.Any(s => s.UserId == currentUserId) ?? false,
+                IsMyPost = post.UserId == currentUserId
             };
         }
 

@@ -31,6 +31,7 @@ namespace MomEase.infra.Repositories
                     .Include(p => p.PostMedia)
                     .Include(p => p.PostComments)
                     .Include(p => p.PostReactions)
+                    .Include(p => p.SavedPosts)
                     .OrderByDescending(p => p.CreatedAt);
 
                 var totalCount = await query.CountAsync();
