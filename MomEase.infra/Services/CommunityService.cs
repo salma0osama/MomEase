@@ -3,6 +3,7 @@ using MomEase.core.DTOS.CommunityDTO;
 using MomEase.core.Entities;
 using MomEase.core.Enums;
 using MomEase.core.Interfaces;
+using Microsoft.AspNetCore.Http;    
 
 namespace MomEase.infra.Services
 {
@@ -10,19 +11,23 @@ namespace MomEase.infra.Services
     {
         private readonly ICommunityRepository _communityRepository;
         private readonly IFileStorageService _fileStorageService;
-        private readonly INotificationService _notificationService; // ⬅️ إضافة
+        private readonly INotificationService _notificationService; 
         private readonly ILogger<CommunityService> _logger;
+        private readonly IHttpContextAccessor _httpContextAccessor;
+
 
         public CommunityService(
             ICommunityRepository communityRepository,
             IFileStorageService fileStorageService,
-            INotificationService notificationService, // ⬅️ إضافة
-            ILogger<CommunityService> logger)
+            INotificationService notificationService, 
+            ILogger<CommunityService> logger,
+            IHttpContextAccessor httpContextAccessor)
         {
             _communityRepository = communityRepository;
             _fileStorageService = fileStorageService;
-            _notificationService = notificationService; // ⬅️ إضافة
+            _notificationService = notificationService; 
             _logger = logger;
+            _httpContextAccessor = httpContextAccessor;
         }
 
         // ===== Posts =====
@@ -1012,18 +1017,21 @@ namespace MomEase.infra.Services
                 UserPhoto = post.User?.MotherProfile?.ProfilePictureUrl,
                 Text = post.Text,
                 Media = post.PostMedia?.OrderBy(m => m.Order)
-                    .Select(m => new PostMediaDto
-                    {
-                        MediaId = m.MediaId,
-                        MediaUrl = m.MediaUrl,
-                        MediaType = m.MediaType.ToString(),
-                        Order = m.Order
-                    }).ToList() ?? new(),
+
+    .Select(m => new PostMediaDto
+    {
+        MediaId = m.MediaId,
+        MediaUrl = GetFullUrl(m.MediaUrl),
+        MediaType = m.MediaType.ToString(),
+        Order = m.Order
+    }).ToList() ?? new(),
                 CommentsCount = post.PostComments?.Count ?? 0,
                 ReactionsCount = post.PostReactions?.Count ?? 0,
                 MyReaction = myReaction?.ReactionType.ToString(),
                 CreatedAt = post.CreatedAt,
-                UpdatedAt = post.UpdatedAt
+                UpdatedAt = post.UpdatedAt,
+                IsSaved = post.SavedPosts?.Any(s => s.UserId == currentUserId) ?? false,
+                IsMyPost = post.UserId == currentUserId
             };
         }
 
@@ -1078,6 +1086,16 @@ namespace MomEase.infra.Services
                 ReviewedAt = report.ReviewedAt,
                 IsReviewed = report.ReviewedById != null
             };
+        }
+        private string GetFullUrl(string relativeUrl)
+        {
+            if (string.IsNullOrEmpty(relativeUrl)) return relativeUrl;
+            if (relativeUrl.StartsWith("http")) return relativeUrl;
+
+            var request = _httpContextAccessor.HttpContext?.Request;
+            if (request == null) return relativeUrl;
+
+            return $"{request.Scheme}://{request.Host}{relativeUrl}";
         }
     }
 }
