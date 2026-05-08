@@ -254,6 +254,7 @@ namespace MomEase.infra.Repositories
             {
                 return await _context.PostReactions
                     .Include(r => r.User)
+                    .ThenInclude(u => u.MotherProfile)
                     .Where(r => r.PostId == postId)
                     .ToListAsync();
             }
