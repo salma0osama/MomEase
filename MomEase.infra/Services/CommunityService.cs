@@ -1062,6 +1062,9 @@ namespace MomEase.infra.Services
                 UserName = reaction.User != null
                     ? $"{reaction.User.FirstName} {reaction.User.LastName}"
                     : "",
+                UserPhoto = reaction.User?.MotherProfile?.ProfilePictureUrl != null
+                    ? GetFullUrl(reaction.User.MotherProfile.ProfilePictureUrl)
+                    : null,
                 ReactionType = reaction.ReactionType.ToString()
             };
         }

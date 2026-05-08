@@ -17,6 +17,7 @@
         public int UserId { get; set; }
         public string UserName { get; set; } = string.Empty;
         public string ReactionType { get; set; } = string.Empty;
+        public string? UserPhoto { get; set; }
     }
 
     public class ReactionsCountDto
