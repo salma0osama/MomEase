@@ -28,6 +28,7 @@ namespace MomEase.infra.Repositories
             {
                 var query = _context.CommunityPosts
                     .Include(p => p.User)
+                    .ThenInclude(u => u.MotherProfile)
                     .Include(p => p.PostMedia)
                     .Include(p => p.PostComments)
                     .Include(p => p.PostReactions)
@@ -56,6 +57,7 @@ namespace MomEase.infra.Repositories
             {
                 return await _context.CommunityPosts
                     .Include(p => p.User)
+                    .ThenInclude(u => u.MotherProfile)
                     .Include(p => p.PostMedia.OrderBy(m => m.Order))
                     .Include(p => p.PostComments)
                     .Include(p => p.PostReactions)
@@ -74,6 +76,7 @@ namespace MomEase.infra.Repositories
             {
                 return await _context.CommunityPosts
                     .Include(p => p.User)
+                    .ThenInclude(u => u.MotherProfile)
                     .Include(p => p.PostMedia.OrderBy(m => m.Order))
                     .Include(p => p.PostComments)
                     .Include(p => p.PostReactions)
@@ -175,6 +178,9 @@ namespace MomEase.infra.Repositories
             {
                 return await _context.PostComments
                     .Include(c => c.User)
+                        .ThenInclude(u => u.MotherProfile)
+                    .Include(c => c.Replies)
+                    .Include(c => c.Reactions)
                     .Where(c => c.PostId == postId)
                     .OrderByDescending(c => c.CreatedAt)
                     .ToListAsync();
@@ -192,6 +198,9 @@ namespace MomEase.infra.Repositories
             {
                 return await _context.PostComments
                     .Include(c => c.User)
+                    .ThenInclude(u => u.MotherProfile)
+                    .Include(c => c.Replies)
+                    .Include(c => c.Reactions)
                     .Include(c => c.Post)
                     .FirstOrDefaultAsync(c => c.CommentId == commentId);
             }
@@ -571,6 +580,162 @@ namespace MomEase.infra.Repositories
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error updating report fields {ReportId}", reportId);
+                throw;
+            }
+        }
+        // ===== Comment Replies =====
+
+        public async Task<CommentReply> AddReplyAsync(CommentReply reply)
+        {
+            try
+            {
+                await _context.CommentReplies.AddAsync(reply);
+                await _context.SaveChangesAsync();
+                return reply;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error adding reply");
+                throw;
+            }
+        }
+
+        public async Task<CommentReply?> GetReplyByIdAsync(int replyId)
+        {
+            try
+            {
+                return await _context.CommentReplies
+                    .Include(r => r.User)
+                        .ThenInclude(u => u.MotherProfile)
+                    .FirstOrDefaultAsync(r => r.ReplyId == replyId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving reply {ReplyId}", replyId);
+                throw;
+            }
+        }
+
+        public async Task<List<CommentReply>> GetCommentRepliesAsync(int commentId)
+        {
+            try
+            {
+                return await _context.CommentReplies
+                    .Include(r => r.User)
+                        .ThenInclude(u => u.MotherProfile)
+                    .Where(r => r.CommentId == commentId)
+                    .OrderBy(r => r.CreatedAt)
+                    .ToListAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving replies for comment {CommentId}", commentId);
+                throw;
+            }
+        }
+
+        public async Task<CommentReply> UpdateReplyAsync(CommentReply reply)
+        {
+            try
+            {
+                _context.CommentReplies.Update(reply);
+                await _context.SaveChangesAsync();
+                return reply;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating reply {ReplyId}", reply.ReplyId);
+                throw;
+            }
+        }
+
+        public async Task DeleteReplyAsync(CommentReply reply)
+        {
+            try
+            {
+                _context.CommentReplies.Remove(reply);
+                await _context.SaveChangesAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error deleting reply {ReplyId}", reply.ReplyId);
+                throw;
+            }
+        }
+
+        // ===== Comment Reactions =====
+
+        public async Task<CommentReaction> AddCommentReactionAsync(CommentReaction reaction)
+        {
+            try
+            {
+                await _context.CommentReactions.AddAsync(reaction);
+                await _context.SaveChangesAsync();
+                return reaction;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error adding comment reaction");
+                throw;
+            }
+        }
+
+        public async Task<CommentReaction?> GetUserCommentReactionAsync(int commentId, int userId)
+        {
+            try
+            {
+                return await _context.CommentReactions
+                    .FirstOrDefaultAsync(r => r.CommentId == commentId && r.UserId == userId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving reaction for comment {CommentId}", commentId);
+                throw;
+            }
+        }
+
+        public async Task<List<CommentReaction>> GetCommentReactionsAsync(int commentId)
+        {
+            try
+            {
+                return await _context.CommentReactions
+                    .Include(r => r.User)
+                        .ThenInclude(u => u.MotherProfile)
+                    .Where(r => r.CommentId == commentId)
+                    .ToListAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving reactions for comment {CommentId}", commentId);
+                throw;
+            }
+        }
+
+        public async Task<CommentReaction> UpdateCommentReactionAsync(CommentReaction reaction)
+        {
+            try
+            {
+                _context.CommentReactions.Update(reaction);
+                await _context.SaveChangesAsync();
+                return reaction;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating comment reaction {ReactionId}", reaction.ReactionId);
+                throw;
+            }
+        }
+
+        public async Task DeleteCommentReactionAsync(CommentReaction reaction)
+        {
+            try
+            {
+                _context.CommentReactions.Remove(reaction);
+                await _context.SaveChangesAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error deleting comment reaction {ReactionId}", reaction.ReactionId);
                 throw;
             }
         }

@@ -19,11 +19,12 @@ namespace MomEase.core.Interfaces
 
         // ===== Comments =====
         Task<PostCommentDto> AddCommentAsync(int postId, int userId, CreateCommentDto dto);
-        Task<List<PostCommentDto>> GetPostCommentsAsync(int postId);
+        Task<List<PostCommentDto>> GetPostCommentsAsync(int postId, int currentUserId);
         Task<PostCommentDto> GetCommentByIdAsync(int commentId, int postId);
         Task<PostCommentDto> UpdateCommentAsync(int commentId, int postId,
             int userId, UpdateCommentDto dto);
-        Task DeleteCommentAsync(int commentId, int postId, int userId);
+        Task DeleteCommentAsync(int commentId, int postId, int userId, bool isAdmin = false);
+       
 
         // ===== Reactions =====
         Task<PostReactionDto> AddReactionAsync(int postId, int userId, AddReactionDto dto);
@@ -45,5 +46,17 @@ namespace MomEase.core.Interfaces
         Task<List<PostReportDto>> GetPendingReportsAsync();
         Task<List<PostReportDto>> GetReviewedReportsAsync();
         Task<PostReportDto> ReviewReportAsync(int reportId, int adminId, ReviewReportDto dto);
+        // ===== Comment Replies =====
+        Task<CommentReplyDto> AddReplyAsync(int commentId, int userId, CreateReplyDto dto);
+        Task<List<CommentReplyDto>> GetCommentRepliesAsync(int commentId, int currentUserId);
+        Task<CommentReplyDto> UpdateReplyAsync(int replyId, int commentId, int userId, UpdateReplyDto dto);
+        Task DeleteReplyAsync(int replyId, int commentId, int userId);
+
+        // ===== Comment Reactions =====
+        Task<CommentReactionDto> AddCommentReactionAsync(int commentId, int userId, AddCommentReactionDto dto);
+        Task<List<CommentReactionDto>> GetCommentReactionsAsync(int commentId);
+        Task<CommentReactionsCountDto> GetCommentReactionsCountAsync(int commentId);
+        Task<CommentReactionDto> UpdateCommentReactionAsync(int commentId, int userId, UpdateCommentReactionDto dto);
+        Task DeleteCommentReactionAsync(int commentId, int userId);
     }
 }

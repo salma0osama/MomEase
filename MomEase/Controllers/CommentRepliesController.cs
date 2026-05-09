@@ -7,16 +7,16 @@ using System.Security.Claims;
 namespace MomEase.api.Controllers
 {
     [ApiController]
-    [Route("api/community/posts/{postId}/comments")]
+    [Route("api/community/posts/{postId}/comments/{commentId}/replies")]
     [Authorize]
-    public class PostCommentsController : ControllerBase
+    public class CommentRepliesController : ControllerBase
     {
         private readonly ICommunityService _communityService;
-        private readonly ILogger<PostCommentsController> _logger;
+        private readonly ILogger<CommentRepliesController> _logger;
 
-        public PostCommentsController(
+        public CommentRepliesController(
             ICommunityService communityService,
-            ILogger<PostCommentsController> logger)
+            ILogger<CommentRepliesController> logger)
         {
             _communityService = communityService;
             _logger = logger;
@@ -26,23 +26,26 @@ namespace MomEase.api.Controllers
         {
             var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value
                            ?? User.FindFirst("userId")?.Value;
-            if (string.IsNullOrEmpty(userIdClaim) || !int.TryParse(userIdClaim, out int userId))
+            if (string.IsNullOrEmpty(userIdClaim) ||
+                !int.TryParse(userIdClaim, out int userId))
                 throw new UnauthorizedAccessException("User ID not found");
             return userId;
         }
 
-        /// <summary>Add comment on post</summary>
         [HttpPost]
-        public async Task<ActionResult> AddComment(int postId, [FromBody] CreateCommentDto dto)
+        public async Task<ActionResult> AddReply(
+            int commentId, [FromBody] CreateReplyDto dto)
         {
             try
             {
                 var userId = GetCurrentUserId();
-                var comment = await _communityService.AddCommentAsync(postId, userId, dto);
-                return CreatedAtAction(
-                    nameof(GetCommentById),
-                    new { postId, id = comment.CommentId },
-                    new { success = true, message = "Comment added successfully", data = comment });
+                var reply = await _communityService.AddReplyAsync(commentId, userId, dto);
+                return Ok(new
+                {
+                    success = true,
+                    message = "Reply added successfully",
+                    data = reply
+                });
             }
             catch (KeyNotFoundException ex)
             {
@@ -54,25 +57,25 @@ namespace MomEase.api.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error adding comment on post {PostId}", postId);
+                _logger.LogError(ex, "Error adding reply to comment {CommentId}", commentId);
                 return StatusCode(500, new { success = false, message = "An error occurred" });
             }
         }
 
-        /// <summary>Get all comments on post</summary>
         [HttpGet]
-        public async Task<ActionResult> GetPostComments(int postId)
+        public async Task<ActionResult> GetCommentReplies(int commentId)
         {
             try
             {
                 var userId = GetCurrentUserId();
-                var comments = await _communityService.GetPostCommentsAsync(postId, userId);
+                var replies = await _communityService
+                    .GetCommentRepliesAsync(commentId, userId);
                 return Ok(new
                 {
                     success = true,
-                    message = "Comments retrieved successfully",
-                    count = comments.Count,
-                    data = comments
+                    message = "Replies retrieved successfully",
+                    count = replies.Count,
+                    data = replies
                 });
             }
             catch (KeyNotFoundException ex)
@@ -81,41 +84,26 @@ namespace MomEase.api.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error retrieving comments for post {PostId}", postId);
+                _logger.LogError(ex, "Error retrieving replies for comment {CommentId}", commentId);
                 return StatusCode(500, new { success = false, message = "An error occurred" });
             }
         }
 
-        /// <summary>Get comment by ID</summary>
-        [HttpGet("{id}")]
-        public async Task<ActionResult> GetCommentById(int postId, int id)
-        {
-            try
-            {
-                var comment = await _communityService.GetCommentByIdAsync(id, postId);
-                return Ok(new { success = true, message = "Comment retrieved successfully", data = comment });
-            }
-            catch (KeyNotFoundException ex)
-            {
-                return NotFound(new { success = false, message = ex.Message });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error retrieving comment {Id}", id);
-                return StatusCode(500, new { success = false, message = "An error occurred" });
-            }
-        }
-
-        /// <summary>Update comment</summary>
-        [HttpPut("{id}")]
-        public async Task<ActionResult> UpdateComment(
-            int postId, int id, [FromBody] UpdateCommentDto dto)
+        [HttpPut("{replyId}")]
+        public async Task<ActionResult> UpdateReply(
+            int commentId, int replyId, [FromBody] UpdateReplyDto dto)
         {
             try
             {
                 var userId = GetCurrentUserId();
-                var comment = await _communityService.UpdateCommentAsync(id, postId, userId, dto);
-                return Ok(new { success = true, message = "Comment updated successfully", data = comment });
+                var reply = await _communityService
+                    .UpdateReplyAsync(replyId, commentId, userId, dto);
+                return Ok(new
+                {
+                    success = true,
+                    message = "Reply updated successfully",
+                    data = reply
+                });
             }
             catch (KeyNotFoundException ex)
             {
@@ -131,21 +119,19 @@ namespace MomEase.api.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error updating comment {Id}", id);
+                _logger.LogError(ex, "Error updating reply {ReplyId}", replyId);
                 return StatusCode(500, new { success = false, message = "An error occurred" });
             }
         }
 
-        /// <summary>Delete comment</summary>
-        [HttpDelete("{id}")]
-        public async Task<ActionResult> DeleteComment(int postId, int id)
+        [HttpDelete("{replyId}")]
+        public async Task<ActionResult> DeleteReply(int commentId, int replyId)
         {
             try
             {
                 var userId = GetCurrentUserId();
-                var isAdmin = User.IsInRole("ADMIN");
-                await _communityService.DeleteCommentAsync(id, postId, userId, isAdmin);
-                return Ok(new { success = true, message = "Comment deleted successfully" });
+                await _communityService.DeleteReplyAsync(replyId, commentId, userId);
+                return Ok(new { success = true, message = "Reply deleted successfully" });
             }
             catch (KeyNotFoundException ex)
             {
@@ -157,7 +143,7 @@ namespace MomEase.api.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error deleting comment {Id}", id);
+                _logger.LogError(ex, "Error deleting reply {ReplyId}", replyId);
                 return StatusCode(500, new { success = false, message = "An error occurred" });
             }
         }
