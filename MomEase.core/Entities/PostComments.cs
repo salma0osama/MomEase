@@ -33,6 +33,8 @@ namespace MomEase.core.Entities
 
         [ForeignKey("UserId")]
         public virtual Users User { get; set; } = null!;
+        public virtual ICollection<CommentReply> Replies { get; set; } = new List<CommentReply>();
+        public virtual ICollection<CommentReaction> Reactions { get; set; } = new List<CommentReaction>();
     }
 
 }

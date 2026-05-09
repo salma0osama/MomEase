@@ -73,6 +73,8 @@ namespace MomEase.infra.Data
         public DbSet<MentalHealthFollowUp> MentalHealthFollowUps { get; set; }
         public DbSet<MentalHealthTip> MentalHealthTips { get; set; }
         public DbSet<SentMentalHealthTip> SentMentalHealthTips { get; set; }
+        public DbSet<CommentReply> CommentReplies { get; set; }
+        public DbSet<CommentReaction> CommentReactions { get; set; }
 
         // ============================
         // Fluent API
@@ -352,6 +354,36 @@ namespace MomEase.infra.Data
                     .WithMany(p => p.SavedPosts)
                     .HasForeignKey(e => e.PostId)
                     .OnDelete(DeleteBehavior.Cascade);
+            });
+            modelBuilder.Entity<CommentReply>(entity =>
+            {
+                entity.HasKey(e => e.ReplyId);
+
+                entity.HasOne(e => e.Comment)
+                    .WithMany(c => c.Replies)
+                    .HasForeignKey(e => e.CommentId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(e => e.User)
+                    .WithMany(u => u.CommentReplies)
+                    .HasForeignKey(e => e.UserId)
+                    .OnDelete(DeleteBehavior.NoAction);
+            });
+
+            modelBuilder.Entity<CommentReaction>(entity =>
+            {
+                entity.HasKey(e => e.ReactionId);
+                entity.HasIndex(e => new { e.CommentId, e.UserId }).IsUnique();
+
+                entity.HasOne(e => e.Comment)
+                    .WithMany(c => c.Reactions)
+                    .HasForeignKey(e => e.CommentId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(e => e.User)
+                    .WithMany(u => u.CommentReactions)
+                    .HasForeignKey(e => e.UserId)
+                    .OnDelete(DeleteBehavior.NoAction);
             });
 
             modelBuilder.Entity<DeviceToken>(entity =>

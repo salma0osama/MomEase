@@ -376,7 +376,7 @@ namespace MomEase.infra.Services
                 _logger.LogInformation("Comment added {CommentId} on post {PostId}",
                     added.CommentId, postId);
 
-                return MapToCommentDto(full!);
+                return MapToCommentDto(full!, userId, post.UserId);
             }
             catch (Exception ex)
             {
@@ -385,7 +385,8 @@ namespace MomEase.infra.Services
             }
         }
 
-        public async Task<List<PostCommentDto>> GetPostCommentsAsync(int postId)
+        public async Task<List<PostCommentDto>> GetPostCommentsAsync(
+        int postId, int currentUserId)
         {
             try
             {
@@ -394,7 +395,8 @@ namespace MomEase.infra.Services
                     throw new KeyNotFoundException("Post not found");
 
                 var comments = await _communityRepository.GetPostCommentsAsync(postId);
-                return comments.Select(c => MapToCommentDto(c)).ToList();
+                return comments.Select(c =>
+                    MapToCommentDto(c, currentUserId, post.UserId)).ToList();
             }
             catch (Exception ex)
             {
@@ -410,8 +412,9 @@ namespace MomEase.infra.Services
                 var comment = await _communityRepository.GetCommentByIdAsync(commentId);
                 if (comment == null || comment.PostId != postId)
                     throw new KeyNotFoundException("Comment not found");
+                var post = await _communityRepository.GetPostByIdAsync(postId);
 
-                return MapToCommentDto(comment);
+                return MapToCommentDto(comment, comment.UserId, post!.UserId);
             }
             catch (Exception ex)
             {
@@ -442,8 +445,9 @@ namespace MomEase.infra.Services
                 var updated = await _communityRepository.UpdateCommentAsync(comment);
 
                 _logger.LogInformation("Comment updated {CommentId}", commentId);
+                var post = await _communityRepository.GetPostByIdAsync(postId);
 
-                return MapToCommentDto(updated);
+                return MapToCommentDto(updated, userId, post!.UserId);
             }
             catch (Exception ex)
             {
@@ -452,7 +456,8 @@ namespace MomEase.infra.Services
             }
         }
 
-        public async Task DeleteCommentAsync(int commentId, int postId, int userId)
+        public async Task DeleteCommentAsync(
+    int commentId, int postId, int userId, bool isAdmin = false)
         {
             try
             {
@@ -460,13 +465,16 @@ namespace MomEase.infra.Services
                 if (comment == null || comment.PostId != postId)
                     throw new KeyNotFoundException("Comment not found");
 
-                if (comment.UserId != userId)
+                // ✅ صاحب الكومنت أو صاحب البوست أو الأدمن
+                var post = await _communityRepository.GetPostByIdAsync(postId);
+                bool isPostOwner = post?.UserId == userId;
+                bool isCommentOwner = comment.UserId == userId;
+
+                if (!isCommentOwner && !isPostOwner && !isAdmin)
                     throw new UnauthorizedAccessException(
                         "You are not authorized to delete this comment");
 
                 await _communityRepository.DeleteCommentAsync(comment);
-
-                _logger.LogInformation("Comment deleted {CommentId}", commentId);
             }
             catch (Exception ex)
             {
@@ -474,7 +482,6 @@ namespace MomEase.infra.Services
                 throw;
             }
         }
-
         // ===== Reactions =====
 
         public async Task<PostReactionDto> AddReactionAsync(
@@ -974,6 +981,268 @@ namespace MomEase.infra.Services
                 throw;
             }
         }
+        // ===== Comment Replies =====
+
+        public async Task<CommentReplyDto> AddReplyAsync(
+            int commentId, int userId, CreateReplyDto dto)
+        {
+            try
+            {
+                var comment = await _communityRepository.GetCommentByIdAsync(commentId);
+                if (comment == null)
+                    throw new KeyNotFoundException("Comment not found");
+
+                if (string.IsNullOrWhiteSpace(dto.Text))
+                    throw new ArgumentException("Reply text cannot be empty");
+
+                var reply = new CommentReply
+                {
+                    CommentId = commentId,
+                    UserId = userId,
+                    Text = dto.Text.Trim(),
+                    CreatedAt = DateTime.Now
+                };
+
+                var added = await _communityRepository.AddReplyAsync(reply);
+                var full = await _communityRepository.GetReplyByIdAsync(added.ReplyId);
+
+                return MapToReplyDto(full!, userId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error adding reply to comment {CommentId}", commentId);
+                throw;
+            }
+        }
+
+        public async Task<List<CommentReplyDto>> GetCommentRepliesAsync(
+            int commentId, int currentUserId)
+        {
+            try
+            {
+                var comment = await _communityRepository.GetCommentByIdAsync(commentId);
+                if (comment == null)
+                    throw new KeyNotFoundException("Comment not found");
+
+                var replies = await _communityRepository.GetCommentRepliesAsync(commentId);
+                return replies.Select(r => MapToReplyDto(r, currentUserId)).ToList();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving replies for comment {CommentId}", commentId);
+                throw;
+            }
+        }
+
+        public async Task<CommentReplyDto> UpdateReplyAsync(
+            int replyId, int commentId, int userId, UpdateReplyDto dto)
+        {
+            try
+            {
+                var reply = await _communityRepository.GetReplyByIdAsync(replyId);
+                if (reply == null || reply.CommentId != commentId)
+                    throw new KeyNotFoundException("Reply not found");
+
+                if (reply.UserId != userId)
+                    throw new UnauthorizedAccessException(
+                        "You are not authorized to update this reply");
+
+                if (string.IsNullOrWhiteSpace(dto.Text))
+                    throw new ArgumentException("Reply text cannot be empty");
+
+                reply.Text = dto.Text.Trim();
+                reply.UpdatedAt = DateTime.Now;
+
+                var updated = await _communityRepository.UpdateReplyAsync(reply);
+                return MapToReplyDto(updated, userId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating reply {ReplyId}", replyId);
+                throw;
+            }
+        }
+
+        public async Task DeleteReplyAsync(int replyId, int commentId, int userId)
+        {
+            try
+            {
+                var reply = await _communityRepository.GetReplyByIdAsync(replyId);
+                if (reply == null || reply.CommentId != commentId)
+                    throw new KeyNotFoundException("Reply not found");
+
+                if (reply.UserId != userId)
+                    throw new UnauthorizedAccessException(
+                        "You are not authorized to delete this reply");
+
+                await _communityRepository.DeleteReplyAsync(reply);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error deleting reply {ReplyId}", replyId);
+                throw;
+            }
+        }
+
+        // ===== Comment Reactions =====
+
+        public async Task<CommentReactionDto> AddCommentReactionAsync(
+            int commentId, int userId, AddCommentReactionDto dto)
+        {
+            try
+            {
+                var comment = await _communityRepository.GetCommentByIdAsync(commentId);
+                if (comment == null)
+                    throw new KeyNotFoundException("Comment not found");
+
+                if (!Enum.TryParse<ReactionType>(dto.ReactionType, true, out var reactionType))
+                    throw new ArgumentException(
+                        "Invalid reaction type. Must be: LIKE, LOVE, SUPPORT, HELPFUL");
+
+                var existing = await _communityRepository
+                    .GetUserCommentReactionAsync(commentId, userId);
+                if (existing != null)
+                    throw new InvalidOperationException(
+                        "You already reacted to this comment. Use PUT to update.");
+
+                var reaction = new CommentReaction
+                {
+                    CommentId = commentId,
+                    UserId = userId,
+                    ReactionType = reactionType
+                };
+
+                var added = await _communityRepository.AddCommentReactionAsync(reaction);
+                return MapToCommentReactionDto(added);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error adding reaction to comment {CommentId}", commentId);
+                throw;
+            }
+        }
+
+        public async Task<List<CommentReactionDto>> GetCommentReactionsAsync(int commentId)
+        {
+            try
+            {
+                var comment = await _communityRepository.GetCommentByIdAsync(commentId);
+                if (comment == null)
+                    throw new KeyNotFoundException("Comment not found");
+
+                var reactions = await _communityRepository.GetCommentReactionsAsync(commentId);
+                return reactions.Select(r => MapToCommentReactionDto(r)).ToList();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving reactions for comment {CommentId}", commentId);
+                throw;
+            }
+        }
+
+        public async Task<CommentReactionsCountDto> GetCommentReactionsCountAsync(int commentId)
+        {
+            try
+            {
+                var reactions = await _communityRepository.GetCommentReactionsAsync(commentId);
+                var byType = reactions
+                    .GroupBy(r => r.ReactionType.ToString())
+                    .ToDictionary(g => g.Key, g => g.Count());
+
+                return new CommentReactionsCountDto
+                {
+                    TotalCount = reactions.Count,
+                    ByType = byType
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving reactions count for comment {CommentId}", commentId);
+                throw;
+            }
+        }
+
+        public async Task<CommentReactionDto> UpdateCommentReactionAsync(
+            int commentId, int userId, UpdateCommentReactionDto dto)
+        {
+            try
+            {
+                var reaction = await _communityRepository
+                    .GetUserCommentReactionAsync(commentId, userId);
+                if (reaction == null)
+                    throw new KeyNotFoundException("Reaction not found");
+
+                if (!Enum.TryParse<ReactionType>(dto.ReactionType, true, out var reactionType))
+                    throw new ArgumentException(
+                        "Invalid reaction type. Must be: LIKE, LOVE, SUPPORT, HELPFUL");
+
+                reaction.ReactionType = reactionType;
+                var updated = await _communityRepository.UpdateCommentReactionAsync(reaction);
+                return MapToCommentReactionDto(updated);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating reaction for comment {CommentId}", commentId);
+                throw;
+            }
+        }
+
+        public async Task DeleteCommentReactionAsync(int commentId, int userId)
+        {
+            try
+            {
+                var reaction = await _communityRepository
+                    .GetUserCommentReactionAsync(commentId, userId);
+                if (reaction == null)
+                    throw new KeyNotFoundException("Reaction not found");
+
+                await _communityRepository.DeleteCommentReactionAsync(reaction);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error deleting reaction for comment {CommentId}", commentId);
+                throw;
+            }
+        }
+
+        // ===== Private Mappers =====
+
+        private CommentReplyDto MapToReplyDto(CommentReply reply, int currentUserId)
+        {
+            return new CommentReplyDto
+            {
+                ReplyId = reply.ReplyId,
+                CommentId = reply.CommentId,
+                UserId = reply.UserId,
+                UserName = reply.User != null
+                    ? $"{reply.User.FirstName} {reply.User.LastName}"
+                    : "",
+                UserPhoto = reply.User?.MotherProfile?.ProfilePictureUrl != null
+                    ? GetFullUrl(reply.User.MotherProfile.ProfilePictureUrl)
+                    : null,
+                Text = reply.Text,
+                IsMyReply = reply.UserId == currentUserId,
+                CreatedAt = reply.CreatedAt,
+                UpdatedAt = reply.UpdatedAt
+            };
+        }
+
+        private CommentReactionDto MapToCommentReactionDto(CommentReaction reaction)
+        {
+            return new CommentReactionDto
+            {
+                ReactionId = reaction.ReactionId,
+                CommentId = reaction.CommentId,
+                UserId = reaction.UserId,
+                UserName = reaction.User != null
+                    ? $"{reaction.User.FirstName} {reaction.User.LastName}"
+                    : "",
+                UserPhoto = reaction.User?.MotherProfile?.ProfilePictureUrl != null
+                    ? GetFullUrl(reaction.User.MotherProfile.ProfilePictureUrl)
+                    : null,
+                ReactionType = reaction.ReactionType.ToString()
+            };
+        }
 
         // ===== Private Helpers =====
 
@@ -1035,8 +1304,12 @@ namespace MomEase.infra.Services
             };
         }
 
-        private PostCommentDto MapToCommentDto(PostComments comment)
+        private PostCommentDto MapToCommentDto(
+    PostComments comment, int currentUserId, int postOwnerId)
         {
+            var myReaction = comment.Reactions?
+                .FirstOrDefault(r => r.UserId == currentUserId);
+
             return new PostCommentDto
             {
                 CommentId = comment.CommentId,
@@ -1045,8 +1318,15 @@ namespace MomEase.infra.Services
                 UserName = comment.User != null
                     ? $"{comment.User.FirstName} {comment.User.LastName}"
                     : "",
-                UserPhoto = comment.User?.MotherProfile?.ProfilePictureUrl,
+                UserPhoto = comment.User?.MotherProfile?.ProfilePictureUrl != null
+                    ? GetFullUrl(comment.User.MotherProfile.ProfilePictureUrl)
+                    : null,
                 Text = comment.Text,
+                IsMyComment = comment.UserId == currentUserId,
+                CanDelete = comment.UserId == currentUserId || postOwnerId == currentUserId,
+                RepliesCount = comment.Replies?.Count ?? 0,
+                ReactionsCount = comment.Reactions?.Count ?? 0,
+                MyReaction = myReaction?.ReactionType.ToString(),
                 CreatedAt = comment.CreatedAt,
                 UpdatedAt = comment.UpdatedAt
             };
