@@ -63,5 +63,6 @@ namespace MomEase.core.Interfaces
         Task<List<CommentReaction>> GetCommentReactionsAsync(int commentId);
         Task<CommentReaction> UpdateCommentReactionAsync(CommentReaction reaction);
         Task DeleteCommentReactionAsync(CommentReaction reaction);
+        Task<CommentReaction?> GetCommentReactionByIdAsync(int reactionId);
     }
 }

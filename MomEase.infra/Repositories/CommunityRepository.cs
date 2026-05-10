@@ -739,5 +739,20 @@ namespace MomEase.infra.Repositories
                 throw;
             }
         }
+        public async Task<CommentReaction?> GetCommentReactionByIdAsync(int reactionId)
+        {
+            try
+            {
+                return await _context.CommentReactions
+                    .Include(r => r.User)
+                        .ThenInclude(u => u.MotherProfile)
+                    .FirstOrDefaultAsync(r => r.ReactionId == reactionId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving comment reaction {ReactionId}", reactionId);
+                throw;
+            }
+        }
     }
 }
