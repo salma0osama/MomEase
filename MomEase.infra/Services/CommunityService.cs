@@ -1162,8 +1162,9 @@ namespace MomEase.infra.Services
             }
         }
 
+      
         public async Task<CommentReactionDto> UpdateCommentReactionAsync(
-            int commentId, int userId, UpdateCommentReactionDto dto)
+    int commentId, int userId, UpdateCommentReactionDto dto)
         {
             try
             {
@@ -1178,7 +1179,12 @@ namespace MomEase.infra.Services
 
                 reaction.ReactionType = reactionType;
                 var updated = await _communityRepository.UpdateCommentReactionAsync(reaction);
-                return MapToCommentReactionDto(updated);
+
+                // ✅ Reload مع الـ User data
+                var fresh = await _communityRepository
+                    .GetCommentReactionByIdAsync(updated.ReactionId);
+
+                return MapToCommentReactionDto(fresh!);
             }
             catch (Exception ex)
             {
