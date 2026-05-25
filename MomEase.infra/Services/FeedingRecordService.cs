@@ -247,19 +247,28 @@ namespace MomEase.infra.Services
                 var totalAverage = allRecords.Average(r => r.FeedingTimesPerDay);
                 var last7DaysAverage = last7Days.Any() ? last7Days.Average(r => r.FeedingTimesPerDay) : 0;
 
-                var mostCommonType = allRecords
+                // ✅ النوع الأكتر شيوعاً (Breastfeeding/Formula/SolidFood)
+                var mostCommonFeedingType = allRecords
+                    .GroupBy(r => r.FeedingTypeForBaby)
+                    .OrderByDescending(g => g.Count())
+                    .FirstOrDefault()?.Key.ToString() ?? "N/A";
+
+                // ✅ الـ Status الأكتر شيوعاً (Normal/Under/Over)
+                var currentFeedingStatus = allRecords
                     .GroupBy(r => r.FeedingType)
                     .OrderByDescending(g => g.Count())
                     .FirstOrDefault()?.Key.ToString() ?? "N/A";
 
                 var ageInMonths = CalculateAgeInMonths(child.BirthDate);
 
-                // Use child's primary feeding type for reference
-                var reference = await _feedingReferenceRepository.GetByAgeAndTypeAsync(ageInMonths, child.FeedingTypeForBaby);
+                // ✅ الـ reference بناءً على النوع الأكتر شيوعاً مش child.FeedingTypeForBaby
+                FeedingReference? reference = null;
+                if (Enum.TryParse<FeedingTypeForBaby>(mostCommonFeedingType, out var dominantType))
+                    reference = await _feedingReferenceRepository.GetByAgeAndTypeAsync(ageInMonths, dominantType);
 
                 var comparison = new ComparisonWithReferenceDto
                 {
-                    Status = mostCommonType,
+                    Status = currentFeedingStatus,           // ✅ Under/Normal/Over
                     RecommendedMin = reference?.MinTimesPerDay ?? 0,
                     RecommendedMax = reference?.MaxTimesPerDay ?? 0,
                     ActualAverage = last7DaysAverage,
@@ -271,8 +280,8 @@ namespace MomEase.infra.Services
                     TotalRecords = allRecords.Count,
                     AverageTimesPerDay = Math.Round(totalAverage, 1),
                     Last7DaysAverage = Math.Round(last7DaysAverage, 1),
-                    CurrentFeedingStatus = mostCommonType,
-                    MostCommonFeedingType = mostCommonType,
+                    CurrentFeedingStatus = currentFeedingStatus,   // ✅ Under/Normal/Over
+                    MostCommonFeedingType = mostCommonFeedingType, // ✅ Breastfeeding/Formula/SolidFood
                     ComparisonWithReference = comparison
                 };
             }
