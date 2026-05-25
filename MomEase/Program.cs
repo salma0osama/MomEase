@@ -69,8 +69,6 @@ namespace MomEase
 
                 builder.Services.AddAuthorization();
 
-
-
                 // Add services to the container.
 
                 //Authentication Repository & Service
@@ -177,7 +175,7 @@ namespace MomEase
                 });
 
 
-                builder.Services.AddControllers();
+                //builder.Services.AddControllers();
                 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
                 //builder.Services.AddEndpointsApiExplorer();
                 //builder.Services.AddSwaggerGen();

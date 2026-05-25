@@ -1,4 +1,5 @@
-﻿using MomEase.core.DTOS.FeedingRecordDto;
+﻿using Microsoft.AspNetCore.Http.HttpResults;
+using MomEase.core.DTOS.FeedingRecordDto;
 using MomEase.core.Entities;
 using MomEase.core.Enums;
 using MomEase.core.Interfaces;
@@ -25,6 +26,16 @@ namespace MomEase.infra.Services
         {
             try
             {
+                var validTypes = new[] { "Breastfeeding", "Formula", "SolidFood" };
+                if (!validTypes.Contains(createDto.FeedingTypeForBaby, StringComparer.OrdinalIgnoreCase))
+                    throw new ArgumentException(
+                        $"Invalid feeding type '{createDto.FeedingTypeForBaby}'. " +
+                        $"Valid values are: {string.Join(", ", validTypes)}");
+
+                // ✅ Convert لـ Enum
+                Enum.TryParse<FeedingTypeForBaby>(createDto.FeedingTypeForBaby, true, out var feedingTypeEnum);
+
+
                 var child = await _childRepository.GetChildByIdAsync(childId);
                 if (child == null)
                     throw new KeyNotFoundException($"Child with ID {childId} not found");
@@ -38,10 +49,10 @@ namespace MomEase.infra.Services
                     throw new InvalidOperationException("Feeding tracking is only available for children up to 24 months old");
 
                 // Check if same type exists on same date
-                if (await _feedingRecordRepository.ExistsForDateAndTypeAsync(childId, createDto.FeedingDate, createDto.FeedingTypeForBaby))
+                if (await _feedingRecordRepository.ExistsForDateAndTypeAsync(childId, createDto.FeedingDate, feedingTypeEnum))
                     throw new InvalidOperationException($"A {createDto.FeedingTypeForBaby} feeding record already exists for {createDto.FeedingDate:yyyy-MM-dd}. Please update the existing record instead.");
 
-                var reference = await _feedingReferenceRepository.GetByAgeAndTypeAsync(ageInMonths, createDto.FeedingTypeForBaby);
+                var reference = await _feedingReferenceRepository.GetByAgeAndTypeAsync(ageInMonths, feedingTypeEnum);
 
                 var feedingType = CalculateFeedingType(
                     createDto.FeedingTimesPerDay,
@@ -54,7 +65,7 @@ namespace MomEase.infra.Services
                     ChildId = childId,
                     FeedingDate = createDto.FeedingDate.Date,
                     FeedingTimesPerDay = createDto.FeedingTimesPerDay,
-                    FeedingTypeForBaby = createDto.FeedingTypeForBaby,
+                    FeedingTypeForBaby = feedingTypeEnum,
                     FeedingType = feedingType,
                     FeedingRefId = reference?.FeedingRefId,
                     Notes = createDto.Notes
@@ -122,21 +133,34 @@ namespace MomEase.infra.Services
         {
             try
             {
-                var record = await _feedingRecordRepository.GetByIdAsync(recordId);
+                // ✅ Validate الـ FeedingType
+                var validTypes = new[] { "Breastfeeding", "Formula", "SolidFood" };
+                if (!validTypes.Contains(updateDto.FeedingTypeForBaby, StringComparer.OrdinalIgnoreCase))
+                    throw new ArgumentException(
+                        $"Invalid feeding type '{updateDto.FeedingTypeForBaby}'. " +
+                        $"Valid values are: {string.Join(", ", validTypes)}");
 
+                // ✅ Convert لـ Enum
+                Enum.TryParse<FeedingTypeForBaby>(updateDto.FeedingTypeForBaby, true, out var feedingTypeEnum);
+
+                var record = await _feedingRecordRepository.GetByIdAsync(recordId);
                 if (record == null)
                     throw new KeyNotFoundException($"Feeding record with ID {recordId} not found");
 
-                if (record.FeedingDate.Date != updateDto.FeedingDate.Date || record.FeedingTypeForBaby != updateDto.FeedingTypeForBaby)
+                // ✅ استخدم feedingTypeEnum مش updateDto.FeedingTypeForBaby
+                if (record.FeedingDate.Date != updateDto.FeedingDate.Date || record.FeedingTypeForBaby != feedingTypeEnum)
                 {
-                    if (await _feedingRecordRepository.ExistsForDateAndTypeAsync(record.ChildId, updateDto.FeedingDate, updateDto.FeedingTypeForBaby, recordId))
-                        throw new InvalidOperationException($"A {updateDto.FeedingTypeForBaby} record already exists for {updateDto.FeedingDate:yyyy-MM-dd}");
+                    if (await _feedingRecordRepository.ExistsForDateAndTypeAsync(
+                        record.ChildId, updateDto.FeedingDate, feedingTypeEnum, recordId))
+                        throw new InvalidOperationException(
+                            $"A {feedingTypeEnum} record already exists for {updateDto.FeedingDate:yyyy-MM-dd}");
                 }
 
                 var child = record.Child;
                 var ageInMonths = CalculateAgeInMonths(child.BirthDate);
 
-                var reference = await _feedingReferenceRepository.GetByAgeAndTypeAsync(ageInMonths, updateDto.FeedingTypeForBaby);
+                // ✅ استخدم feedingTypeEnum
+                var reference = await _feedingReferenceRepository.GetByAgeAndTypeAsync(ageInMonths, feedingTypeEnum);
 
                 var feedingType = CalculateFeedingType(
                     updateDto.FeedingTimesPerDay,
@@ -146,7 +170,7 @@ namespace MomEase.infra.Services
 
                 record.FeedingDate = updateDto.FeedingDate.Date;
                 record.FeedingTimesPerDay = updateDto.FeedingTimesPerDay;
-                record.FeedingTypeForBaby = updateDto.FeedingTypeForBaby;
+                record.FeedingTypeForBaby = feedingTypeEnum; // ✅
                 record.FeedingType = feedingType;
                 record.FeedingRefId = reference?.FeedingRefId;
                 record.Notes = updateDto.Notes;
@@ -156,16 +180,15 @@ namespace MomEase.infra.Services
 
                 return MapToResponseDto(record, child, reference);
             }
-            catch (Exception ex) when (ex is KeyNotFoundException || ex is InvalidOperationException)
+            catch (Exception ex) when (ex is KeyNotFoundException || ex is InvalidOperationException || ex is ArgumentException)
             {
-                throw;
+                throw; // ✅ زود ArgumentException هنا عشان الـ validation error يوصل للـ Controller
             }
             catch (Exception ex)
             {
                 throw new InvalidOperationException($"Failed to update feeding record: {ex.Message}", ex);
             }
         }
-
         public async Task<bool> DeleteFeedingRecordAsync(int recordId)
         {
             try
@@ -265,126 +288,92 @@ namespace MomEase.infra.Services
 
         public async Task<WeeklyFeedingDto> GetWeeklyRecordsAsync(int childId)
         {
-            try
+            var child = await _childRepository.GetChildByIdAsync(childId);
+            if (child == null)
+                throw new KeyNotFoundException($"Child with ID {childId} not found");
+
+            var today = DateTime.Now.Date;
+            var weekStart = today.AddDays(-6); // ✅ آخر 7 أيام
+            var weekEnd = today;
+
+            var records = await _feedingRecordRepository.GetByDateRangeAsync(childId, weekStart, weekEnd);
+
+            var dailyRecords = new List<DailyFeedingDto>();
+
+            for (int i = 0; i < 7; i++)
             {
-                var child = await _childRepository.GetChildByIdAsync(childId);
-                if (child == null)
-                    throw new KeyNotFoundException($"Child with ID {childId} not found");
+                var date = weekStart.AddDays(i);
+                var dayRecords = records.Where(r => r.FeedingDate.Date == date.Date).ToList();
 
-                var today = DateTime.Now.Date;
-
-                // ✅ حساب أول يوم في الأسبوع (الأحد)
-                var dayOfWeek = (int)today.DayOfWeek;
-                var weekStart = today.AddDays(-dayOfWeek);  // الأحد
-                var weekEnd = weekStart.AddDays(6);  // السبت
-
-                var records = await _feedingRecordRepository.GetByDateRangeAsync(childId, weekStart, weekEnd);
-
-                var dailyRecords = new List<DailyFeedingDto>();
-
-                for (int i = 0; i < 7; i++)
+                dailyRecords.Add(new DailyFeedingDto
                 {
-                    var date = weekStart.AddDays(i);
-                    var dayRecords = records.Where(r => r.FeedingDate.Date == date).ToList();
-
-                    if (dayRecords.Any())
+                    Date = date,
+                    Records = dayRecords.Select(r => new DailyFeedingEntryDto
                     {
-                        // ✅ إذا كان فيه أكثر من سجل في نفس اليوم، خد أول واحد
-                        var record = dayRecords.First();
-                        dailyRecords.Add(new DailyFeedingDto
-                        {
-                            Date = date,
-                            TimesPerDay = record.FeedingTimesPerDay,
-                            FeedingType = record.FeedingTypeForBaby.ToString(),
-                            Status = record.FeedingType.ToString()
-                        });
-                    }
-                    else
-                    {
-                        dailyRecords.Add(new DailyFeedingDto
-                        {
-                            Date = date,
-                            TimesPerDay = null,
-                            FeedingType = null,
-                            Status = null
-                        });
-                    }
-                }
+                        TimesPerDay = r.FeedingTimesPerDay,
+                        FeedingType = r.FeedingTypeForBaby.ToString(),
+                        Status = r.FeedingType.ToString()
+                    }).ToList()
+                });
+            }
 
-                var weeklyAverage = records.Any() ? records.Average(r => r.FeedingTimesPerDay) : 0;
+            var weeklyAverage = records.Any() ? records.Average(r => r.FeedingTimesPerDay) : 0;
 
-                return new WeeklyFeedingDto
-                {
-                    WeekStart = weekStart,
-                    WeekEnd = weekEnd,
-                    DailyRecords = dailyRecords,
-                    WeeklyAverage = Math.Round(weeklyAverage, 1)
-                };
-            }
-            catch (Exception ex) when (ex is KeyNotFoundException)
+            return new WeeklyFeedingDto
             {
-                throw;
-            }
-            catch (Exception ex)
-            {
-                throw new InvalidOperationException($"Failed to retrieve weekly feeding records: {ex.Message}", ex);
-            }
+                WeekStart = weekStart,
+                WeekEnd = weekEnd,
+                DailyRecords = dailyRecords,
+                WeeklyAverage = Math.Round(weeklyAverage, 1)
+            };
         }
 
         public async Task<MonthlyFeedingDto> GetMonthlyRecordsAsync(int childId)
         {
-            try
+            var child = await _childRepository.GetChildByIdAsync(childId);
+            if (child == null)
+                throw new KeyNotFoundException($"Child with ID {childId} not found");
+
+            var now = DateTime.Now;
+            var startOfMonth = new DateTime(now.Year, now.Month, 1);
+            var daysInMonth = DateTime.DaysInMonth(now.Year, now.Month);
+
+            var records = await _feedingRecordRepository.GetCurrentMonthAsync(childId);
+
+            var dailyRecords = new List<DailyFeedingDto>();
+
+            for (int i = 0; i < daysInMonth; i++)
             {
-                var child = await _childRepository.GetChildByIdAsync(childId);
-                if (child == null)
-                    throw new KeyNotFoundException($"Child with ID {childId} not found");
+                var date = startOfMonth.AddDays(i);
+                var dayRecords = records.Where(r => r.FeedingDate.Date == date.Date).ToList();
 
-                var records = await _feedingRecordRepository.GetCurrentMonthAsync(childId);
-
-                if (!records.Any())
+                dailyRecords.Add(new DailyFeedingDto
                 {
-                    var now = DateTime.Now;
-                    return new MonthlyFeedingDto
+                    Date = date,
+                    Records = dayRecords.Select(r => new DailyFeedingEntryDto
                     {
-                        Month = now.Month,
-                        Year = now.Year,
-                        MonthName = now.ToString("MMMM yyyy"),
-                        TotalRecords = 0,
-                        AverageTimesPerDay = 0,
-                        FeedingTypeDistribution = new Dictionary<string, int>(),
-                        DominantStatus = "No Data"
-                    };
-                }
-
-                var feedingTypeDistribution = records
-                    .GroupBy(r => r.FeedingType.ToString())
-                    .ToDictionary(g => g.Key, g => g.Count());
-
-                var dominantStatus = feedingTypeDistribution
-                    .OrderByDescending(kvp => kvp.Value)
-                    .FirstOrDefault().Key ?? "Unknown";
-
-                var currentMonth = DateTime.Now;
-
-                return new MonthlyFeedingDto
-                {
-                    Month = currentMonth.Month,
-                    Year = currentMonth.Year,
-                    MonthName = currentMonth.ToString("MMMM yyyy"),
-                    TotalRecords = records.Count,
-                    AverageTimesPerDay = Math.Round(records.Average(r => r.FeedingTimesPerDay), 1),
-                    FeedingTypeDistribution = feedingTypeDistribution,
-                    DominantStatus = dominantStatus
-                };
+                        TimesPerDay = r.FeedingTimesPerDay,
+                        FeedingType = r.FeedingTypeForBaby.ToString(),
+                        Status = r.FeedingType.ToString()
+                    }).ToList()
+                });
             }
-            catch (Exception ex) when (ex is KeyNotFoundException)
+
+            var monthlyAverage = records.Any() ? records.Average(r => r.FeedingTimesPerDay) : 0;
+            var normalDays = records.Count(r => r.FeedingType == FeedingType.Normal);
+            var abnormalDays = records.Count(r => r.FeedingType != FeedingType.Normal);
+
+            return new MonthlyFeedingDto
             {
-                throw;
-            }
-            catch (Exception ex)
-            {
-                throw new InvalidOperationException($"Failed to retrieve monthly feeding records: {ex.Message}", ex);
-            }
+                Year = now.Year,
+                Month = now.Month,
+                MonthName = now.ToString("MMMM"),
+                DailyRecords = dailyRecords,
+                MonthlyAverageTimesPerDay = Math.Round(monthlyAverage, 1),
+                TotalRecords = records.Count,
+                NormalDays = normalDays,
+                AbnormalDays = abnormalDays
+            };
         }
 
         #region Helper Methods
