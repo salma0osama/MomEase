@@ -384,10 +384,8 @@ namespace MomEase.infra.Services
 
                 var today = DateTime.Now.Date;
 
-                // ✅ حساب أول يوم في الأسبوع (الأحد)
-                var dayOfWeek = (int)today.DayOfWeek;
-                var weekStart = today.AddDays(-dayOfWeek);  // الأحد
-                var weekEnd = weekStart.AddDays(6);  // السبت
+                var weekEnd = today;  // النهاردة
+                var weekStart = today.AddDays(-6);  // قبل 6 أيام (total = 7 days)
 
                 var records = await _sleepRecordRepository.GetSleepRecordsByDateRangeAsync(childId, weekStart, weekEnd);
 
