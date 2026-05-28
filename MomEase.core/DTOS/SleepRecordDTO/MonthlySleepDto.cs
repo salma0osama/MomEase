@@ -13,6 +13,7 @@ namespace MomEase.core.DTOS.SleepRecordDTO
         public string MonthName { get; set; }
         public List<DailySleepDto> DailySleep { get; set; }
         public TimeSpan MonthlyAverageSleep { get; set; }
+        public string MonthlyAverageSleepFormatted { get; set; }
         public int TotalRecords { get; set; }
         public int GoodDays { get; set; }
         public int PoorDays { get; set; }

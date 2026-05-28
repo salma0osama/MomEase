@@ -19,18 +19,42 @@ namespace MomEase.core.Entities
         [Required]
         public DateTime SleepDate { get; set; }
 
-        public TimeSpan? SleepHoursTotal { get; set; }
+        [Required]
+        public TimeSpan SleepStartTime { get; set; }
+
+        [Required]
+        public TimeSpan SleepEndTime { get; set; }
+
+        [MaxLength(50)]
+        public string? Quality { get; set; }
+
+        [MaxLength(500)]
+        public string? Notes { get; set; }
 
         public int? SleepRefId { get; set; }
 
-        [MaxLength(500)]
-        public string Notes { get; set; }
-
-        // Navigation Properties
         [ForeignKey("ChildId")]
         public virtual Child Child { get; set; }
 
         [ForeignKey("SleepRefId")]
         public virtual SleepReference SleepReference { get; set; }
+
+        [NotMapped]
+        public TimeSpan SleepDuration
+        {
+            get
+            {
+                if (SleepEndTime < SleepStartTime)
+                {
+                    // Overnight sleep
+                    return (TimeSpan.FromHours(24) - SleepStartTime) + SleepEndTime;
+                }
+                else
+                {
+                    return SleepEndTime - SleepStartTime;
+                }
+            }
+        }
+        public DateTime CreatedAt { get; set; } = DateTime.Now;
     }
 }

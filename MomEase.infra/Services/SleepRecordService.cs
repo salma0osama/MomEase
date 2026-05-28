@@ -41,41 +41,65 @@ namespace MomEase.infra.Services
                 if (dto.SleepDate > DateTime.Now)
                     throw new ArgumentException("Sleep date cannot be in the future");
 
-                // ✅ إضافة: التحقق من وجود سجل في نفس اليوم
-                if (await _sleepRecordRepository.ExistsForDateAsync(dto.ChildId, dto.SleepDate))
+                // ✅ Parse times من string لـ TimeSpan
+                if (!TimeSpan.TryParse(dto.SleepStartTime, out var startTime))
+                    throw new ArgumentException("Invalid start time format. Use HH:mm (e.g., 20:30)");
+
+                if (!TimeSpan.TryParse(dto.SleepEndTime, out var endTime))
+                    throw new ArgumentException("Invalid end time format. Use HH:mm (e.g., 07:00)");
+
+                // ✅ Remove the duplicate check - يقبل عدة sessions في نفس اليوم
+                // (احذفي الأسطر اللي بتفحص ExistsForDateAsync)
+
+                // ✅ Calculate duration
+                TimeSpan duration;
+                if (endTime < startTime)
                 {
-                    throw new InvalidOperationException(
-                        $"A sleep record already exists for {dto.SleepDate:yyyy-MM-dd}. Please update the existing record instead.");
+                    // Overnight sleep (8 PM to 7 AM)
+                    duration = (TimeSpan.FromHours(24) - startTime) + endTime;
+                }
+                else
+                {
+                    duration = endTime - startTime;
                 }
 
-                TimeSpan? sleepHours = null;
-                if (!string.IsNullOrEmpty(dto.SleepHoursTotal))
+                // Validate reasonable sleep duration
+                if (duration.TotalHours < 0.25 || duration.TotalHours > 12)
                 {
-                    if (!TimeSpan.TryParse(dto.SleepHoursTotal, out var parsed))
-                        throw new ArgumentException("Invalid sleep hours format. Use HH:mm:ss (e.g., 08:30:00)");
-                    sleepHours = parsed;
+                    throw new ArgumentException(
+                        $"Sleep duration ({duration.TotalHours:F1} hours) is not realistic. " +
+                        "Please verify the start and end times.");
                 }
 
-                // حساب عمر الطفل وجلب الـ Reference
+                // Get reference للمقارنة
                 var ageInMonths = CalculateAgeInMonths(child.BirthDate);
                 var reference = await _sleepReferenceRepository.GetByAgeAsync(ageInMonths);
 
+                // ✅ Create record
                 var record = new ChildSleepRecord
                 {
                     ChildId = dto.ChildId,
                     SleepDate = dto.SleepDate,
-                    SleepHoursTotal = sleepHours,
+                    SleepStartTime = startTime,     // ✅ NEW
+                    SleepEndTime = endTime,         // ✅ NEW
+                    Quality = dto.Quality,          // ✅ NEW
+                    Notes = dto.Notes,
                     SleepRefId = reference?.SleepRefId,
-                    Notes = dto.Notes
+                    CreatedAt = DateTime.Now
                 };
 
                 var createdRecord = await _sleepRecordRepository.AddSleepRecordAsync(record);
-                _logger.LogInformation("Sleep record created {RecordId} for child {ChildId}", createdRecord.RecordId, dto.ChildId);
+
+                _logger.LogInformation(
+                    "Sleep session created {RecordId} for child {ChildId}: {StartTime} to {EndTime} ({Duration} hours)",
+                    createdRecord.RecordId, dto.ChildId,
+                    createdRecord.SleepStartTime, createdRecord.SleepEndTime,
+                    createdRecord.SleepDuration.TotalHours);
 
                 return MapToDto(createdRecord, reference);
             }
             catch (Exception ex) when (ex is KeyNotFoundException || ex is ArgumentException ||
-                                       ex is InvalidOperationException || ex is UnauthorizedAccessException)
+                                       ex is UnauthorizedAccessException)
             {
                 throw;
             }
@@ -155,15 +179,8 @@ namespace MomEase.infra.Services
                 if (record.Child.UserId != userId)
                     throw new UnauthorizedAccessException("You are not authorized to update this record");
 
-                // ✅ إضافة: التحقق من التاريخ المكرر عند التحديث
-                if (dto.SleepDate.HasValue && dto.SleepDate.Value.Date != record.SleepDate.Date)
-                {
-                    if (await _sleepRecordRepository.ExistsForDateAsync(record.ChildId, dto.SleepDate.Value, recordId))
-                    {
-                        throw new InvalidOperationException(
-                            $"A sleep record already exists for {dto.SleepDate.Value:yyyy-MM-dd}");
-                    }
-                }
+                // ✅ Remove duplicate check - يقبل عدة sessions في نفس اليوم
+                // (احذفي الأسطر اللي بتفحص ExistsForDateAsync)
 
                 if (dto.SleepDate.HasValue)
                 {
@@ -172,15 +189,36 @@ namespace MomEase.infra.Services
                     record.SleepDate = dto.SleepDate.Value;
                 }
 
-                if (!string.IsNullOrEmpty(dto.SleepHoursTotal))
+                // ✅ Update start time if provided
+                if (!string.IsNullOrEmpty(value: dto.SleepStartTime))
                 {
-                    if (!TimeSpan.TryParse(dto.SleepHoursTotal, out var parsed))
-                        throw new ArgumentException("Invalid sleep hours format. Use HH:mm:ss (e.g., 08:30:00)");
-                    record.SleepHoursTotal = parsed;
+                    if (!TimeSpan.TryParse(dto.SleepStartTime, out var startTime))
+                        throw new ArgumentException("Invalid start time format. Use HH:mm (e.g., 20:30)");
+                    record.SleepStartTime = startTime;
                 }
+
+                // ✅ Update end time if provided
+                if (!string.IsNullOrEmpty(dto.SleepEndTime))
+                {
+                    if (!TimeSpan.TryParse(dto.SleepEndTime, out var endTime))
+                        throw new ArgumentException("Invalid end time format. Use HH:mm (e.g., 07:00)");
+                    record.SleepEndTime = endTime;
+                }
+
+                // ✅ Remove old code
+                // if (!string.IsNullOrEmpty(dto.SleepHoursTotal))
+                // {
+                //     if (!TimeSpan.TryParse(dto.SleepHoursTotal, out var parsed))
+                //         throw new ArgumentException("Invalid sleep hours format. Use HH:mm:ss (e.g., 08:30:00)");
+                //     record.SleepHoursTotal = parsed;
+                // }
 
                 if (dto.SleepRefId.HasValue)
                     record.SleepRefId = dto.SleepRefId;
+
+                // ✅ Update quality if provided
+                if (!string.IsNullOrEmpty(dto.Quality))
+                    record.Quality = dto.Quality;
 
                 if (dto.Notes != null)
                     record.Notes = dto.Notes;
@@ -188,7 +226,6 @@ namespace MomEase.infra.Services
                 var updatedRecord = await _sleepRecordRepository.UpdateSleepRecordAsync(record);
                 _logger.LogInformation("Sleep record updated {RecordId}", recordId);
 
-                // جلب الـ Reference
                 var ageInMonths = CalculateAgeInMonths(record.Child.BirthDate);
                 var reference = await _sleepReferenceRepository.GetByAgeAsync(ageInMonths);
 
@@ -245,9 +282,11 @@ namespace MomEase.infra.Services
                     throw new UnauthorizedAccessException("You are not authorized to access this child's statistics");
 
                 var records = await _sleepRecordRepository.GetChildSleepRecordsAsync(childId);
-                var recordsWithSleep = records.Where(r => r.SleepHoursTotal.HasValue).ToList();
+                // ✅ Remove: var recordsWithSleep = records.Where(r => r.SleepHoursTotal.HasValue).ToList();
 
-                // ✅ جلب Reference للمقارنة
+                // ✅ Use instead:
+                var recordsWithSleep = records.Where(r => r.SleepDuration.Ticks > 0).ToList();
+
                 var ageInMonths = CalculateAgeInMonths(child.BirthDate);
                 var reference = await _sleepReferenceRepository.GetByAgeAsync(ageInMonths);
 
@@ -279,46 +318,45 @@ namespace MomEase.infra.Services
                     };
                 }
 
-                // ✅ حساب المتوسط الكلي
-                var avgTicks = (long)recordsWithSleep.Average(r => r.SleepHoursTotal.Value.Ticks);
+                // ✅ Calculate average using SleepDuration
+                var avgTicks = (long)recordsWithSleep.Average(r => r.SleepDuration.Ticks);
                 var avgSleep = new TimeSpan(avgTicks);
 
-                // ✅ حساب Last 7 Days Average
+                // ✅ Last 7 days average
                 var last7Days = await _sleepRecordRepository.GetLastNDaysAsync(childId, 7);
-                var last7DaysWithSleep = last7Days.Where(r => r.SleepHoursTotal.HasValue).ToList();
+                var last7DaysWithSleep = last7Days.Where(r => r.SleepDuration.Ticks > 0).ToList();
 
                 TimeSpan last7DaysAvgTimeSpan = TimeSpan.Zero;
                 double last7DaysAverage = 0;
 
                 if (last7DaysWithSleep.Any())
                 {
-                    var last7AvgTicks = (long)last7DaysWithSleep.Average(r => r.SleepHoursTotal.Value.Ticks);
+                    var last7AvgTicks = (long)last7DaysWithSleep.Average(r => r.SleepDuration.Ticks);
                     last7DaysAvgTimeSpan = new TimeSpan(last7AvgTicks);
-                    last7DaysAverage = last7DaysWithSleep.Average(r => r.SleepHoursTotal.Value.TotalHours);
+                    last7DaysAverage = last7DaysWithSleep.Average(r => r.SleepDuration.TotalHours);
                 }
 
-                // ✅ حساب Good, Normal, Poor Days
+                // ✅ Calculate Good, Normal, Poor Days
                 var goodSleep = recordsWithSleep.Count(r =>
                     reference != null &&
                     reference.SleepMinHours.HasValue &&
                     reference.SleepMaxHours.HasValue &&
-                    r.SleepHoursTotal.Value.TotalHours >= reference.SleepMinHours.Value.TotalHours &&
-                    r.SleepHoursTotal.Value.TotalHours <= reference.SleepMaxHours.Value.TotalHours
+                    r.SleepDuration.TotalHours >= reference.SleepMinHours.Value.TotalHours &&
+                    r.SleepDuration.TotalHours <= reference.SleepMaxHours.Value.TotalHours
                 );
 
                 var poorSleep = recordsWithSleep.Count(r =>
                     reference != null &&
                     reference.SleepMinHours.HasValue &&
-                    r.SleepHoursTotal.Value.TotalHours < reference.SleepMinHours.Value.TotalHours
+                    r.SleepDuration.TotalHours < reference.SleepMinHours.Value.TotalHours
                 );
 
                 var normalSleep = recordsWithSleep.Count(r =>
                     reference != null &&
                     reference.SleepMaxHours.HasValue &&
-                    r.SleepHoursTotal.Value.TotalHours > reference.SleepMaxHours.Value.TotalHours
+                    r.SleepDuration.TotalHours > reference.SleepMaxHours.Value.TotalHours
                 );
 
-                // ✅ حساب Most Common Status
                 var statusCounts = new Dictionary<string, int>
         {
             { "Good", goodSleep },
@@ -327,10 +365,8 @@ namespace MomEase.infra.Services
         };
                 var mostCommonStatus = statusCounts.OrderByDescending(kvp => kvp.Value).FirstOrDefault().Key ?? "Unknown";
 
-                // ✅ Current Sleep Status (based on last 7 days)
                 var currentStatus = GetSleepStatusCategory(last7DaysAverage, reference);
 
-                // ✅ Comparison with Reference
                 var comparison = new ComparisonWithSleepReferenceDto
                 {
                     Status = currentStatus,
@@ -345,8 +381,8 @@ namespace MomEase.infra.Services
                     TotalRecords = recordsWithSleep.Count,
                     AverageSleepHours = avgSleep,
                     AverageSleepHoursFormatted = FormatTimeSpan(avgSleep),
-                    MaxSleepHours = recordsWithSleep.Max(r => r.SleepHoursTotal.Value),
-                    MinSleepHours = recordsWithSleep.Min(r => r.SleepHoursTotal.Value),
+                    MaxSleepHours = recordsWithSleep.Max(r => r.SleepDuration),
+                    MinSleepHours = recordsWithSleep.Min(r => r.SleepDuration),
                     GoodSleepDays = goodSleep,
                     NormalSleepDays = normalSleep,
                     PoorSleepDays = poorSleep,
@@ -383,38 +419,49 @@ namespace MomEase.infra.Services
                     throw new UnauthorizedAccessException("You are not authorized to access this child's records");
 
                 var today = DateTime.Now.Date;
-
-                var weekEnd = today;  // النهاردة
-                var weekStart = today.AddDays(-6);  // قبل 6 أيام (total = 7 days)
+                var weekStart = today.AddDays(-6);  // آخر 7 أيام
+                var weekEnd = today;
 
                 var records = await _sleepRecordRepository.GetSleepRecordsByDateRangeAsync(childId, weekStart, weekEnd);
 
-                // ✅ جلب Reference للمقارنة
                 var ageInMonths = CalculateAgeInMonths(child.BirthDate);
                 var reference = await _sleepReferenceRepository.GetByAgeAsync(ageInMonths);
 
+                // ✅ Group by date and sum total sleep
                 var dailySleep = Enumerable.Range(0, 7).Select(i =>
                 {
                     var date = weekStart.AddDays(i);
-                    var dayRecord = records.FirstOrDefault(r => r.SleepDate.Date == date);
+                    var daySessions = records.Where(r => r.SleepDate.Date == date).ToList();
+
+                    // ✅ Calculate total sleep for the day (مجموع جميع الجلسات)
+                    var totalSleepTicks = daySessions.Sum(s => s.SleepDuration.Ticks);
+                    var totalSleep = totalSleepTicks > 0 ? new TimeSpan(totalSleepTicks) : (TimeSpan?)null;
+
                     return new DailySleepDto
                     {
                         Date = date,
-                        SleepHours = dayRecord?.SleepHoursTotal,
-                        Status = GetSleepStatus(dayRecord?.SleepHoursTotal, reference)
+                        SleepHours = totalSleep,
+                        SleepHoursFormatted = FormatTimeSpan(totalSleep),
+                        Status = GetSleepStatus(totalSleep, reference),
+                        SessionCount = daySessions.Count  // عدد الجلسات في اليوم
                     };
                 }).ToList();
 
-                var avgTicks = records.Where(r => r.SleepHoursTotal.HasValue)
-                                      .Average(r => (double?)r.SleepHoursTotal.Value.Ticks) ?? 0;
+                // ✅ Calculate weekly average
+                var recordsWithSleep = records.Where(r => r.SleepDuration.Ticks > 0).ToList();
+                var avgTicks = recordsWithSleep.Any()
+                    ? (long)recordsWithSleep.Average(r => r.SleepDuration.Ticks)
+                    : 0;
 
                 return new WeeklySleepDto
                 {
                     WeekStart = weekStart,
                     WeekEnd = weekEnd,
                     DailySleep = dailySleep,
-                    WeeklyAverageSleep = new TimeSpan((long)avgTicks),
-                    TotalRecords = records.Count
+                    WeeklyAverageSleep = new TimeSpan(avgTicks),
+                    WeeklyAverageSleepFormatted = FormatTimeSpan(new TimeSpan(avgTicks)),
+                    TotalRecords = recordsWithSleep.Count,
+                    TotalSessions = records.Count
                 };
             }
             catch (Exception ex) when (ex is KeyNotFoundException || ex is UnauthorizedAccessException)
@@ -439,46 +486,54 @@ namespace MomEase.infra.Services
                 if (child.UserId != userId)
                     throw new UnauthorizedAccessException("You are not authorized to access this child's records");
 
-                var today = DateTime.Now;
+                var today = DateTime.Now.Date;
                 var monthStart = new DateTime(today.Year, today.Month, 1);
-                var monthEnd = monthStart.AddMonths(1).AddDays(-1);
+                var monthEnd = today;  // ✅ Changed: لحد النهاردة بس مش آخر الشهر
 
                 var records = await _sleepRecordRepository.GetSleepRecordsByDateRangeAsync(childId, monthStart, monthEnd);
 
-                // ✅ جلب Reference للمقارنة
                 var ageInMonths = CalculateAgeInMonths(child.BirthDate);
                 var reference = await _sleepReferenceRepository.GetByAgeAsync(ageInMonths);
 
-                var daysInMonth = DateTime.DaysInMonth(today.Year, today.Month);
-                var dailySleep = Enumerable.Range(1, daysInMonth).Select(day =>
+                // ✅ Group by date and sum
+                var daysInRange = (monthEnd - monthStart).Days + 1;
+                var dailySleep = Enumerable.Range(0, daysInRange).Select(day =>
                 {
-                    var date = new DateTime(today.Year, today.Month, day);
-                    var dayRecord = records.FirstOrDefault(r => r.SleepDate.Date == date);
+                    var date = monthStart.AddDays(day);
+                    var daySessions = records.Where(r => r.SleepDate.Date == date).ToList();
+
+                    // ✅ Sum all sessions for the day
+                    var totalSleepTicks = daySessions.Sum(s => s.SleepDuration.Ticks);
+                    var totalSleep = totalSleepTicks > 0 ? new TimeSpan(totalSleepTicks) : (TimeSpan?)null;
+
                     return new DailySleepDto
                     {
                         Date = date,
-                        SleepHours = dayRecord?.SleepHoursTotal,
-                        Status = GetSleepStatus(dayRecord?.SleepHoursTotal, reference)
+                        SleepHours = totalSleep,
+                        SleepHoursFormatted = FormatTimeSpan(totalSleep),
+                        Status = GetSleepStatus(totalSleep, reference),
+                        SessionCount = daySessions.Count
                     };
                 }).ToList();
 
-                var avgTicks = records.Where(r => r.SleepHoursTotal.HasValue)
-                                      .Average(r => (double?)r.SleepHoursTotal.Value.Ticks) ?? 0;
+                // ✅ Calculate average
+                var recordsWithSleep = records.Where(r => r.SleepDuration.Ticks > 0).ToList();
+                var avgTicks = recordsWithSleep.Any()
+                    ? (long)recordsWithSleep.Average(r => r.SleepDuration.Ticks)
+                    : 0;
 
-                var goodDays = records.Count(r =>
-                    r.SleepHoursTotal.HasValue &&
+                var goodDays = recordsWithSleep.Count(r =>
                     reference != null &&
                     reference.SleepMinHours.HasValue &&
                     reference.SleepMaxHours.HasValue &&
-                    r.SleepHoursTotal.Value.TotalHours >= reference.SleepMinHours.Value.TotalHours &&
-                    r.SleepHoursTotal.Value.TotalHours <= reference.SleepMaxHours.Value.TotalHours
+                    r.SleepDuration.TotalHours >= reference.SleepMinHours.Value.TotalHours &&
+                    r.SleepDuration.TotalHours <= reference.SleepMaxHours.Value.TotalHours
                 );
 
-                var poorDays = records.Count(r =>
-                    r.SleepHoursTotal.HasValue &&
+                var poorDays = recordsWithSleep.Count(r =>
                     reference != null &&
                     reference.SleepMinHours.HasValue &&
-                    r.SleepHoursTotal.Value.TotalHours < reference.SleepMinHours.Value.TotalHours
+                    r.SleepDuration.TotalHours < reference.SleepMinHours.Value.TotalHours
                 );
 
                 return new MonthlySleepDto
@@ -487,8 +542,9 @@ namespace MomEase.infra.Services
                     Month = today.Month,
                     MonthName = CultureInfo.CurrentCulture.DateTimeFormat.GetMonthName(today.Month),
                     DailySleep = dailySleep,
-                    MonthlyAverageSleep = new TimeSpan((long)avgTicks),
-                    TotalRecords = records.Count,
+                    MonthlyAverageSleep = new TimeSpan(avgTicks),
+                    MonthlyAverageSleepFormatted = FormatTimeSpan(new TimeSpan(avgTicks)),
+                    TotalRecords = recordsWithSleep.Count,
                     GoodDays = goodDays,
                     PoorDays = poorDays
                 };
@@ -514,11 +570,21 @@ namespace MomEase.infra.Services
                 ChildId = record.ChildId,
                 ChildName = record.Child?.FullName,
                 SleepDate = record.SleepDate,
-                SleepHoursTotal = record.SleepHoursTotal,
-                SleepHoursTotalFormatted = FormatTimeSpan(record.SleepHoursTotal),
-                SleepRefId = record.SleepRefId,
+
+                // ✅ NEW: الأوقات
+                SleepStartTime = record.SleepStartTime,
+                SleepEndTime = record.SleepEndTime,
+                SleepStartTimeFormatted = record.SleepStartTime.ToString(@"hh\:mm"),
+                SleepEndTimeFormatted = record.SleepEndTime.ToString(@"hh\:mm"),
+
+                // ✅ NEW: المدة المحسوبة
+                SleepDuration = record.SleepDuration,
+                SleepDurationFormatted = FormatTimeSpan(record.SleepDuration),
+
+                Quality = record.Quality,  // ✅ NEW
                 Notes = record.Notes,
-                Status = GetSleepStatus(record.SleepHoursTotal, reference),
+                Status = GetSleepStatus(record.SleepDuration, reference),  // ✅ Changed
+
                 ReferenceInfo = reference != null ? new SleepingReferenceInfo
                 {
                     SleepMinHours = reference.SleepMinHours ?? TimeSpan.Zero,

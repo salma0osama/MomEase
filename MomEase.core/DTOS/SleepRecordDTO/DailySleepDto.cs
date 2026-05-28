@@ -10,6 +10,8 @@ namespace MomEase.core.DTOS.SleepRecordDTO
     {
         public DateTime Date { get; set; }
         public TimeSpan? SleepHours { get; set; }
+        public string SleepHoursFormatted { get; set; }
         public string Status { get; set; }
+        public int SessionCount { get; set; }
     }
 }
