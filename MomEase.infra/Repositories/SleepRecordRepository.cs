@@ -58,7 +58,10 @@ namespace MomEase.infra.Repositories
             return await _context.ChildSleepRecords
                 .Include(s => s.Child)
                 .Include(s => s.SleepReference)
-                .Where(s => s.ChildId == childId && s.SleepDate >= startDate && s.SleepDate <= endDate)
+                .Where(
+                s => s.ChildId == childId &&
+                s.SleepDate.Date >= startDate.Date &&
+                s.SleepDate.Date <= endDate.Date)
                 .OrderBy(s => s.SleepDate)
                 .ToListAsync();
         }
