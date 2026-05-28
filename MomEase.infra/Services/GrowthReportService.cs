@@ -326,7 +326,7 @@ namespace MomEase.infra.Services
                     Message = LocalizationHelper.GetLocalizedMessage("NoSleepData", language)
                 };
 
-            var withSleep = records.Where(r => r.SleepHoursTotal.HasValue).ToList();
+            var withSleep = records.Where(r => r.SleepDuration.Ticks > 0).ToList();
             if (!withSleep.Any())
                 return new SleepAnalysisDto
                 {
@@ -337,7 +337,7 @@ namespace MomEase.infra.Services
                     Message = LocalizationHelper.GetLocalizedMessage("NoSleepHoursData", language)
                 };
 
-            var avgSleep = withSleep.Average(r => r.SleepHoursTotal.Value.TotalHours);
+            var avgSleep = withSleep.Average(r => r.SleepDuration.TotalHours);
             var ageInMonths = CalculateAgeInMonths(child.BirthDate);
             var reference = await _sleepRefRepo.GetByAgeMonthsAsync(ageInMonths);
 
@@ -347,10 +347,10 @@ namespace MomEase.infra.Services
                 ? reference.SleepMaxHours.Value.TotalHours : 16;
 
             var goodDays = withSleep.Count(r =>
-                r.SleepHoursTotal.Value.TotalHours >= minSleep &&
-                r.SleepHoursTotal.Value.TotalHours <= maxSleep);
+                r.SleepDuration.TotalHours >= minSleep &&
+                r.SleepDuration.TotalHours <= maxSleep);
             var poorDays = withSleep.Count(r =>
-                r.SleepHoursTotal.Value.TotalHours < minSleep);
+                r.SleepDuration.TotalHours < minSleep);
 
             var status = avgSleep >= minSleep && avgSleep <= maxSleep ? "Good"
                        : avgSleep < minSleep ? "Poor" : "Normal";
@@ -361,7 +361,7 @@ namespace MomEase.infra.Services
                 GoodSleepDays = goodDays,
                 PoorSleepDays = poorDays,
                 CurrentStatus = status,
-                Message = GenerateSleepMessage(avgSleep, minSleep, maxSleep,language)
+                Message = GenerateSleepMessage(avgSleep, minSleep, maxSleep, language)
             };
         }
 
@@ -404,7 +404,7 @@ namespace MomEase.infra.Services
                 GoodFeedingDays = goodDays,
                 PoorFeedingDays = poorDays,
                 CurrentStatus = status,
-                Message = GenerateFeedingMessage(avgFeedingsPerDay, minFeedings, maxFeedings,language)
+                Message = GenerateFeedingMessage(avgFeedingsPerDay, minFeedings, maxFeedings, language)
             };
         }
 
@@ -447,12 +447,12 @@ namespace MomEase.infra.Services
                 var sleepInPeriod = sleepRecords
                     .Where(s => s.SleepDate >= curr.RecordDate &&
                                 s.SleepDate < next.RecordDate &&
-                                s.SleepHoursTotal.HasValue)
+                                s.SleepDuration.Ticks > 0)
                     .ToList();
 
                 if (sleepInPeriod.Any())
                     monthlyData.Add((
-                        sleepInPeriod.Average(s => s.SleepHoursTotal.Value.TotalHours),
+                        sleepInPeriod.Average(s => s.SleepDuration.TotalHours),
                         weightGain));
             }
 
@@ -670,14 +670,14 @@ namespace MomEase.infra.Services
                 }).ToList();
 
             var sleepChart = sleepRecords
-                .Where(r => r.SleepHoursTotal.HasValue)
+                .Where(r => r.SleepDuration.Ticks > 0)
                 .GroupBy(r => r.SleepDate.Date)
                 .Select(g => new ChartDataPointDto
                 {
                     Date = g.Key,
                     AgeMonths = CalculateAgeInMonthsAtDate(child.BirthDate, g.Key),
-                    Value = (decimal)g.First().SleepHoursTotal.Value.TotalHours,
-                    Label = $"{g.First().SleepHoursTotal.Value.TotalHours:F1}h"
+                    Value = (decimal)g.Sum(s => s.SleepDuration.TotalHours),
+                    Label = $"{g.Sum(s => s.SleepDuration.TotalHours):F1}h"
                 })
                 .OrderBy(c => c.Date).ToList();
 
@@ -721,7 +721,7 @@ namespace MomEase.infra.Services
             }
 
             var sleepReference = new List<ReferenceRangePointDto>();
-            foreach (var r in sleepRecords.Where(r => r.SleepHoursTotal.HasValue)
+            foreach (var r in sleepRecords.Where(r => r.SleepDuration.Ticks > 0)
                                           .GroupBy(r => r.SleepDate.Date)
                                           .Select(g => g.First())
                                           .OrderBy(r => r.SleepDate))
@@ -772,7 +772,7 @@ namespace MomEase.infra.Services
         private string DetermineOverallStatus(
             GrowthAnalysisDto growth, SleepAnalysisDto sleep, FeedingAnalysisDto feeding, string language = "en")
         {
-           
+
             var scores = new List<string> { growth.WeightStatus, sleep.CurrentStatus, feeding.CurrentStatus };
             var goodCount = scores.Count(s => s is "Good" or "Normal" or "Above Average" or "Below Average");
             var poorCount = scores.Count(s => s is "Poor" or "Underweight" or "Overweight" or "Short" or "Tall");

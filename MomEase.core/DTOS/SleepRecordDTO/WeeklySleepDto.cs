@@ -12,6 +12,8 @@ namespace MomEase.core.DTOS.SleepRecordDTO
         public DateTime WeekEnd { get; set; }
         public List<DailySleepDto> DailySleep { get; set; }
         public TimeSpan WeeklyAverageSleep { get; set; }
+        public string WeeklyAverageSleepFormatted { get; set; }
         public int TotalRecords { get; set; }
+        public int TotalSessions { get; set; }
     }
 }
