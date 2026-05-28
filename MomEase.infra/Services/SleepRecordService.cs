@@ -1,7 +1,9 @@
-﻿using Microsoft.Extensions.Logging;
+﻿using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging;
 using MomEase.core.DTOS.SleepRecordDTO;
 using MomEase.core.Entities;
 using MomEase.core.Interfaces;
+using MomEase.infra.Helpers;
 using System.Globalization;
 
 namespace MomEase.infra.Services
@@ -11,17 +13,20 @@ namespace MomEase.infra.Services
         private readonly ISleepRecordRepository _sleepRecordRepository;
         private readonly IChildRepository _childRepository;
         private readonly ISleepReferenceRepository _sleepReferenceRepository;
+        private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly ILogger<SleepRecordService> _logger;
 
         public SleepRecordService(
             ISleepRecordRepository sleepRecordRepository,
             IChildRepository childRepository,
             ISleepReferenceRepository sleepReferenceRepository,
+            IHttpContextAccessor httpContextAccessor,
             ILogger<SleepRecordService> logger)
         {
             _sleepRecordRepository = sleepRecordRepository;
             _childRepository = childRepository;
             _sleepReferenceRepository = sleepReferenceRepository;
+            _httpContextAccessor = httpContextAccessor;
             _logger = logger;
         }
 
@@ -274,6 +279,8 @@ namespace MomEase.infra.Services
         {
             try
             {
+                var lang = LanguageHelper.GetLang(_httpContextAccessor);
+
                 var child = await _childRepository.GetChildByIdAsync(childId);
                 if (child == null)
                     throw new KeyNotFoundException("Child not found");
@@ -305,15 +312,17 @@ namespace MomEase.infra.Services
                         SleepQualityPercentage = 0,
                         Last7DaysAverage = TimeSpan.Zero,
                         Last7DaysAverageFormatted = "0h 0m",
-                        CurrentSleepStatus = "No Data",
-                        MostCommonStatus = "No Data",
+                        CurrentSleepStatus = lang == "ar" ? "لا توجد بيانات" : "No Data",
+                        MostCommonStatus = lang == "ar" ? "لا توجد بيانات" : "No Data",
                         ComparisonWithReference = new ComparisonWithSleepReferenceDto
                         {
-                            Status = "No Data",
+                            Status = lang == "ar" ? "لا توجد بيانات" : "No Data",
                             RecommendedMinHours = reference?.SleepMinHours?.TotalHours ?? 0,
                             RecommendedMaxHours = reference?.SleepMaxHours?.TotalHours ?? 0,
                             ActualAverageHours = 0,
-                            Message = "No sleep records available yet"
+                            Message = lang == "ar"
+                                ? "لا توجد سجلات نوم متاحة حتى الآن"
+                                : "No sleep records available yet"
                         }
                     };
                 }
@@ -358,14 +367,14 @@ namespace MomEase.infra.Services
                 );
 
                 var statusCounts = new Dictionary<string, int>
-        {
-            { "Good", goodSleep },
-            { "Poor", poorSleep },
-            { "Normal", normalSleep }
-        };
-                var mostCommonStatus = statusCounts.OrderByDescending(kvp => kvp.Value).FirstOrDefault().Key ?? "Unknown";
+                {
+                    { lang == "ar" ? "جيد" : "Good", goodSleep },
+                    { lang == "ar" ? "سيء" : "Poor", poorSleep },
+                    { lang == "ar" ? "عادي" : "Normal", normalSleep }
+                };
+                var mostCommonStatus = statusCounts.OrderByDescending(kvp => kvp.Value).FirstOrDefault().Key ?? (lang == "ar" ? "غير معروف" : "Unknown");
 
-                var currentStatus = GetSleepStatusCategory(last7DaysAverage, reference);
+                var currentStatus = GetSleepStatusCategory(last7DaysAverage, reference, lang);
 
                 var comparison = new ComparisonWithSleepReferenceDto
                 {
@@ -373,7 +382,7 @@ namespace MomEase.infra.Services
                     RecommendedMinHours = reference?.SleepMinHours?.TotalHours ?? 0,
                     RecommendedMaxHours = reference?.SleepMaxHours?.TotalHours ?? 0,
                     ActualAverageHours = Math.Round(last7DaysAverage, 1),
-                    Message = GenerateComparisonMessage(last7DaysAverage, reference)
+                    Message = GenerateComparisonMessage(last7DaysAverage, reference, lang)
                 };
 
                 return new SleepStatisticsDto
@@ -629,46 +638,69 @@ namespace MomEase.infra.Services
         /// <summary>
         /// ✅ إضافة: Get status category for comparison
         /// </summary>
-        private string GetSleepStatusCategory(double actualHours, SleepReference? reference)
+        private string GetSleepStatusCategory(double actualHours, SleepReference? reference, string lang = "en")
         {
             if (reference == null || !reference.SleepMinHours.HasValue || !reference.SleepMaxHours.HasValue)
-                return "No Reference";
+                return lang == "ar" ? "لا توجد مرجعية" : "No Reference";
 
             var min = reference.SleepMinHours.Value.TotalHours;
             var max = reference.SleepMaxHours.Value.TotalHours;
 
             if (actualHours >= min && actualHours <= max)
-                return "Good";
+                return lang == "ar" ? "جيد" : "Good";
             else if (actualHours < min)
-                return "Poor";
+                return lang == "ar" ? "سيء" : "Poor";
             else
-                return "Normal";
+                return lang == "ar" ? "عادي" : "Normal";
         }
 
         /// <summary>
         /// ✅ إضافة: Generate comparison message (مثل Feeding)
         /// </summary>
-        private string GenerateComparisonMessage(double actualHours, SleepReference? reference)
+        private string GenerateComparisonMessage(double actualHours, SleepReference? reference, string lang = "en")
         {
             if (reference == null || !reference.SleepMinHours.HasValue || !reference.SleepMaxHours.HasValue)
-                return "No reference data available for this age range";
+                return lang == "ar"
+                    ? "لا توجد بيانات مرجعية متاحة لهذه الفئة العمرية"
+                    : "No reference data available for this age range";
 
             var min = reference.SleepMinHours.Value.TotalHours;
             var max = reference.SleepMaxHours.Value.TotalHours;
 
-            if (actualHours < min * 0.7)
-                return $"⚠️ Sleep duration is significantly below recommended ({min}-{max} hours/day). Please consult with a pediatrician.";
+            if (lang == "ar")
+            {
+                // العربية
+                if (actualHours < min * 0.7)
+                    return $"⚠️ مدة النوم أقل بكثير من الموصى به ({min}-{max} ساعات/يوم). يرجى استشارة طبيب الأطفال.";
 
-            if (actualHours < min)
-                return $"⚠️ Sleep duration is slightly below recommended ({min}-{max} hours/day).";
+                if (actualHours < min)
+                    return $"⚠️ مدة النوم أقل قليلاً من الموصى به ({min}-{max} ساعات/يوم).";
 
-            if (actualHours >= min && actualHours <= max)
-                return $"✅ Your baby is sleeping within the recommended range ({min}-{max} hours/day).";
+                if (actualHours >= min && actualHours <= max)
+                    return $"✅ الطفل ينام ضمن النطاق الموصى به ({min}-{max} ساعات/يوم).";
 
-            if (actualHours <= max * 1.2)
-                return $"Sleep duration is slightly above recommended ({min}-{max} hours/day), which is generally fine.";
+                if (actualHours <= max * 1.2)
+                    return $"مدة النوم أعلى قليلاً من الموصى به ({min}-{max} ساعات/يوم)، وهذا آمن بشكل عام.";
 
-            return $"⚠️ Sleep duration is significantly above recommended ({min}-{max} hours/day). Monitor your child's overall health.";
+                return $"⚠️ مدة النوم أعلى بكثير من الموصى به ({min}-{max} ساعات/يوم). راقبي صحة الطفل بشكل عام.";
+            }
+            else
+            {
+                // الإنجليزية
+                if (actualHours < min * 0.7)
+                    return $"⚠️ Sleep duration is significantly below recommended ({min}-{max} hours/day). Please consult with a pediatrician.";
+
+                if (actualHours < min)
+                    return $"⚠️ Sleep duration is slightly below recommended ({min}-{max} hours/day).";
+
+                if (actualHours >= min && actualHours <= max)
+                    return $"✅ Your baby is sleeping within the recommended range ({min}-{max} hours/day).";
+
+                if (actualHours <= max * 1.2)
+                    return $"Sleep duration is slightly above recommended ({min}-{max} hours/day), which is generally fine.";
+
+                return $"⚠️ Sleep duration is significantly above recommended ({min}-{max} hours/day). Monitor your child's overall health.";
+            }
         }
 
         /// <summary>
