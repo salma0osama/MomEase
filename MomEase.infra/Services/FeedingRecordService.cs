@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Http.HttpResults;
+﻿using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http.HttpResults;
 using MomEase.core.DTOS.FeedingRecordDto;
 using MomEase.core.Entities;
 using MomEase.core.Enums;
@@ -11,29 +12,79 @@ namespace MomEase.infra.Services
         private readonly IFeedingRecordRepository _feedingRecordRepository;
         private readonly IFeedingReferenceRepository _feedingReferenceRepository;
         private readonly IChildRepository _childRepository;
+        private readonly IHttpContextAccessor _httpContextAccessor;
 
         public FeedingRecordService(
             IFeedingRecordRepository feedingRecordRepository,
             IFeedingReferenceRepository feedingReferenceRepository,
-            IChildRepository childRepository)
+            IChildRepository childRepository,
+    IHttpContextAccessor httpContextAccessor)
         {
             _feedingRecordRepository = feedingRecordRepository ?? throw new ArgumentNullException(nameof(feedingRecordRepository));
             _feedingReferenceRepository = feedingReferenceRepository ?? throw new ArgumentNullException(nameof(feedingReferenceRepository));
             _childRepository = childRepository ?? throw new ArgumentNullException(nameof(childRepository));
-        }
+            _httpContextAccessor = httpContextAccessor;
 
+        }
+        private static readonly Dictionary<string, string> FeedingTypeAr = new()
+{
+    { "Breastfeeding", "الرضاعة الطبيعية" },
+    { "Formula", "الحليب الصناعي" },
+    { "SolidFood", "الطعام الصلب" }
+};
+
+        private static readonly Dictionary<string, string> FeedingStatusAr = new()
+{
+    { "Normal", "طبيعي" },
+    { "Under", "أقل من المعدل" },
+    { "Over", "أكثر من المعدل" },
+    { "SevereUnder", "أقل بكثير من المعدل" },
+    { "Obese", "مفرط" },
+    { "No Data", "لا توجد بيانات" },
+    { "N/A", "غير متاح" }
+};
+        private static readonly Dictionary<string, string> ArabicToEnglishFeedingType = new()
+{
+    { "الرضاعة الطبيعية", "Breastfeeding" },
+    { "الحليب الصناعي", "Formula" },
+    { "الطعام الصلب", "SolidFood" }
+};
+
+        private string NormalizeFeedingType(string value)
+        {
+            if (string.IsNullOrEmpty(value)) return value;
+
+            // لو عربي حوله لإنجليزي
+            if (ArabicToEnglishFeedingType.ContainsKey(value))
+                return ArabicToEnglishFeedingType[value];
+
+            return value;
+        }
         public async Task<FeedingRecordResponseDto> CreateFeedingRecordAsync(int childId, CreateFeedingRecordDto createDto)
         {
             try
             {
-                var validTypes = new[] { "Breastfeeding", "Formula", "SolidFood" };
-                if (!validTypes.Contains(createDto.FeedingTypeForBaby, StringComparer.OrdinalIgnoreCase))
-                    throw new ArgumentException(
-                        $"Invalid feeding type '{createDto.FeedingTypeForBaby}'. " +
-                        $"Valid values are: {string.Join(", ", validTypes)}");
+                var isAr = GetLang().StartsWith("ar");
+                // normalize القيمة سواء عربي أو إنجليزي
+                var normalizedType = NormalizeFeedingType(createDto.FeedingTypeForBaby);
 
-                // ✅ Convert لـ Enum
-                Enum.TryParse<FeedingTypeForBaby>(createDto.FeedingTypeForBaby, true, out var feedingTypeEnum);
+                var validTypes = new[] { "Breastfeeding", "Formula", "SolidFood" };
+                if (!validTypes.Contains(normalizedType, StringComparer.OrdinalIgnoreCase))
+                    throw new ArgumentException(isAr
+                        ? "نوع الرضاعة غير صحيح. القيم المقبولة: الرضاعة الطبيعية، الحليب الصناعي، الطعام الصلب"
+                        : "Invalid feeding type. Valid values are: Breastfeeding, Formula, SolidFood");
+
+
+
+                Enum.TryParse<FeedingTypeForBaby>(normalizedType, true, out var feedingTypeEnum);
+                //var validTypes = new[] { "Breastfeeding", "Formula", "SolidFood" };
+                //if (!validTypes.Contains(createDto.FeedingTypeForBaby, StringComparer.OrdinalIgnoreCase))
+                //    throw new ArgumentException(
+                //        $"Invalid feeding type '{createDto.FeedingTypeForBaby}'. " +
+                //        $"Valid values are: {string.Join(", ", validTypes)}");
+
+                //// ✅ Convert لـ Enum
+                //Enum.TryParse<FeedingTypeForBaby>(createDto.FeedingTypeForBaby, true, out var feedingTypeEnum);
 
 
                 var child = await _childRepository.GetChildByIdAsync(childId);
@@ -133,15 +184,26 @@ namespace MomEase.infra.Services
         {
             try
             {
-                // ✅ Validate الـ FeedingType
-                var validTypes = new[] { "Breastfeeding", "Formula", "SolidFood" };
-                if (!validTypes.Contains(updateDto.FeedingTypeForBaby, StringComparer.OrdinalIgnoreCase))
-                    throw new ArgumentException(
-                        $"Invalid feeding type '{updateDto.FeedingTypeForBaby}'. " +
-                        $"Valid values are: {string.Join(", ", validTypes)}");
+                var isAr = GetLang().StartsWith("ar");
+                // normalize القيمة سواء عربي أو إنجليزي
+                var normalizedType = NormalizeFeedingType(updateDto.FeedingTypeForBaby);
 
-                // ✅ Convert لـ Enum
-                Enum.TryParse<FeedingTypeForBaby>(updateDto.FeedingTypeForBaby, true, out var feedingTypeEnum);
+                var validTypes = new[] { "Breastfeeding", "Formula", "SolidFood" };
+                if (!validTypes.Contains(normalizedType, StringComparer.OrdinalIgnoreCase))
+                    throw new ArgumentException(isAr
+                        ? "نوع الرضاعة غير صحيح. القيم المقبولة: الرضاعة الطبيعية، الحليب الصناعي، الطعام الصلب"
+                        : "Invalid feeding type. Valid values are: Breastfeeding, Formula, SolidFood");
+
+                Enum.TryParse<FeedingTypeForBaby>(normalizedType, true, out var feedingTypeEnum);
+                //// ✅ Validate الـ FeedingType
+                //var validTypes = new[] { "Breastfeeding", "Formula", "SolidFood" };
+                //if (!validTypes.Contains(updateDto.FeedingTypeForBaby, StringComparer.OrdinalIgnoreCase))
+                //    throw new ArgumentException(
+                //        $"Invalid feeding type '{updateDto.FeedingTypeForBaby}'. " +
+                //        $"Valid values are: {string.Join(", ", validTypes)}");
+
+                //// ✅ Convert لـ Enum
+                //Enum.TryParse<FeedingTypeForBaby>(updateDto.FeedingTypeForBaby, true, out var feedingTypeEnum);
 
                 var record = await _feedingRecordRepository.GetByIdAsync(recordId);
                 if (record == null)
@@ -280,9 +342,20 @@ namespace MomEase.infra.Services
                     TotalRecords = allRecords.Count,
                     AverageTimesPerDay = Math.Round(totalAverage, 1),
                     Last7DaysAverage = Math.Round(last7DaysAverage, 1),
-                    CurrentFeedingStatus = currentFeedingStatus,   // ✅ Under/Normal/Over
-                    MostCommonFeedingType = mostCommonFeedingType, // ✅ Breastfeeding/Formula/SolidFood
-                    ComparisonWithReference = comparison
+                    CurrentFeedingStatus = LocalizeStatus(currentFeedingStatus),
+                    MostCommonFeedingType = LocalizeFeedingType(mostCommonFeedingType),
+                    ComparisonWithReference = new ComparisonWithReferenceDto
+                    {
+                        Status = LocalizeStatus(currentFeedingStatus),
+                        RecommendedMin = reference?.MinTimesPerDay ?? 0,
+                        RecommendedMax = reference?.MaxTimesPerDay ?? 0,
+                        ActualAverage = last7DaysAverage,
+                        Message = GetLang().StartsWith("ar")
+             ? GenerateComparisonMessageAr(last7DaysAverage,
+                 reference?.MinTimesPerDay, reference?.MaxTimesPerDay)
+             : GenerateComparisonMessage(last7DaysAverage,
+                 reference?.MinTimesPerDay, reference?.MaxTimesPerDay)
+                    }
                 };
             }
             catch (Exception ex) when (ex is KeyNotFoundException)
@@ -320,8 +393,8 @@ namespace MomEase.infra.Services
                     Records = dayRecords.Select(r => new DailyFeedingEntryDto
                     {
                         TimesPerDay = r.FeedingTimesPerDay,
-                        FeedingType = r.FeedingTypeForBaby.ToString(),
-                        Status = r.FeedingType.ToString()
+                        FeedingType = LocalizeFeedingType(r.FeedingTypeForBaby.ToString()),
+                        Status = LocalizeStatus(r.FeedingType.ToString())
                     }).ToList()
                 });
             }
@@ -362,8 +435,8 @@ namespace MomEase.infra.Services
                     Records = dayRecords.Select(r => new DailyFeedingEntryDto
                     {
                         TimesPerDay = r.FeedingTimesPerDay,
-                        FeedingType = r.FeedingTypeForBaby.ToString(),
-                        Status = r.FeedingType.ToString()
+                        FeedingType = LocalizeFeedingType(r.FeedingTypeForBaby.ToString()),
+                        Status = LocalizeStatus(r.FeedingType.ToString())
                     }).ToList()
                 });
             }
@@ -458,7 +531,8 @@ namespace MomEase.infra.Services
         /// <summary>
         /// Map entity to response DTO
         /// </summary>
-        private FeedingRecordResponseDto MapToResponseDto(ChildFeedingRecord record, Child child, FeedingReference? reference)
+        private FeedingRecordResponseDto MapToResponseDto(
+    ChildFeedingRecord record, Child child, FeedingReference? reference)
         {
             return new FeedingRecordResponseDto
             {
@@ -467,8 +541,8 @@ namespace MomEase.infra.Services
                 ChildName = child.FullName,
                 FeedingDate = record.FeedingDate,
                 FeedingTimesPerDay = record.FeedingTimesPerDay,
-                FeedingTypeForBaby = record.FeedingTypeForBaby.ToString(),
-                FeedingType = record.FeedingType.ToString(),
+                FeedingTypeForBaby = LocalizeFeedingType(record.FeedingTypeForBaby.ToString()),
+                FeedingType = LocalizeStatus(record.FeedingType.ToString()),
                 Notes = record.Notes,
                 ReferenceInfo = reference != null ? new FeedingReferenceInfo
                 {
@@ -478,7 +552,43 @@ namespace MomEase.infra.Services
                 } : null
             };
         }
+        private string GetLang() =>
+    _httpContextAccessor.HttpContext?
+        .Request.Headers["Accept-Language"]
+        .ToString().ToLower() ?? "en";
 
+        private string LocalizeFeedingType(string value)
+        {
+            if (GetLang().StartsWith("ar") && FeedingTypeAr.ContainsKey(value))
+                return FeedingTypeAr[value];
+            return value;
+        }
+
+        private string LocalizeStatus(string value)
+        {
+            if (GetLang().StartsWith("ar") && FeedingStatusAr.ContainsKey(value))
+                return FeedingStatusAr[value];
+            return value;
+        }
+        private string GenerateComparisonMessageAr(double actual, int? min, int? max)
+        {
+            if (!min.HasValue || !max.HasValue)
+                return "لا توجد بيانات مرجعية لهذه الفئة العمرية";
+
+            if (actual < min * 0.5)
+                return $"⚠️ عدد مرات الرضاعة أقل بكثير من الموصى به ({min}-{max} مرة/يوم). يرجى استشارة طبيب الأطفال.";
+
+            if (actual < min)
+                return $"⚠️ عدد مرات الرضاعة أقل قليلاً من الموصى به ({min}-{max} مرة/يوم).";
+
+            if (actual >= min && actual <= max)
+                return $"✅ طفلك يرضع ضمن النطاق الموصى به ({min}-{max} مرة/يوم).";
+
+            if (actual <= max * 1.5)
+                return $"⚠️ عدد مرات الرضاعة أكثر قليلاً من الموصى به ({min}-{max} مرة/يوم).";
+
+            return $"⚠️ عدد مرات الرضاعة أكثر بكثير من الموصى به ({min}-{max} مرة/يوم). يرجى استشارة طبيب الأطفال.";
+        }
         #endregion
     }
 }
