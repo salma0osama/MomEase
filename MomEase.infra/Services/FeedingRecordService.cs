@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using MomEase.core.DTOS.FeedingRecordDto;
 using MomEase.core.Entities;

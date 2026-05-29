@@ -119,6 +119,7 @@ namespace MomEase.infra.Services
         {
             try
             {
+                var lang = LanguageHelper.GetLang(_httpContextAccessor);
                 var child = await _childRepository.GetChildByIdAsync(childId);
                 if (child == null)
                     throw new KeyNotFoundException("Child not found");
@@ -132,7 +133,7 @@ namespace MomEase.infra.Services
                 var ageInMonths = CalculateAgeInMonths(child.BirthDate);
                 var reference = await _sleepReferenceRepository.GetByAgeAsync(ageInMonths);
 
-                return records.Select(r => MapToDto(r, reference)).ToList();
+                return records.Select(r => MapToDto(r, reference,lang)).ToList();
             }
             catch (Exception ex) when (ex is KeyNotFoundException || ex is UnauthorizedAccessException)
             {
@@ -149,6 +150,7 @@ namespace MomEase.infra.Services
         {
             try
             {
+                var lang = LanguageHelper.GetLang(_httpContextAccessor);
                 var record = await _sleepRecordRepository.GetSleepRecordByIdAsync(recordId);
                 if (record == null)
                     throw new KeyNotFoundException("Sleep record not found");
@@ -160,7 +162,7 @@ namespace MomEase.infra.Services
                 var ageInMonths = CalculateAgeInMonths(record.Child.BirthDate);
                 var reference = await _sleepReferenceRepository.GetByAgeAsync(ageInMonths);
 
-                return MapToDto(record, reference);
+                return MapToDto(record, reference,lang);
             }
             catch (Exception ex) when (ex is KeyNotFoundException || ex is UnauthorizedAccessException)
             {
@@ -420,6 +422,7 @@ namespace MomEase.infra.Services
         {
             try
             {
+                var lang = LanguageHelper.GetLang(_httpContextAccessor);
                 var child = await _childRepository.GetChildByIdAsync(childId);
                 if (child == null)
                     throw new KeyNotFoundException("Child not found");
@@ -451,7 +454,7 @@ namespace MomEase.infra.Services
                         Date = date,
                         SleepHours = totalSleep,
                         SleepHoursFormatted = FormatTimeSpan(totalSleep),
-                        Status = GetSleepStatus(totalSleep, reference),
+                        Status = GetSleepStatus(totalSleep, reference, lang),
                         SessionCount = daySessions.Count  // عدد الجلسات في اليوم
                     };
                 }).ToList();
@@ -488,6 +491,7 @@ namespace MomEase.infra.Services
         {
             try
             {
+                var lang = LanguageHelper.GetLang(_httpContextAccessor);
                 var child = await _childRepository.GetChildByIdAsync(childId);
                 if (child == null)
                     throw new KeyNotFoundException("Child not found");
@@ -520,7 +524,7 @@ namespace MomEase.infra.Services
                         Date = date,
                         SleepHours = totalSleep,
                         SleepHoursFormatted = FormatTimeSpan(totalSleep),
-                        Status = GetSleepStatus(totalSleep, reference),
+                        Status = GetSleepStatus(totalSleep, reference, lang),
                         SessionCount = daySessions.Count
                     };
                 }).ToList();
@@ -549,7 +553,9 @@ namespace MomEase.infra.Services
                 {
                     Year = today.Year,
                     Month = today.Month,
-                    MonthName = CultureInfo.CurrentCulture.DateTimeFormat.GetMonthName(today.Month),
+                    MonthName = lang == "ar"
+                    ? GetArabicMonthName(today.Month)  // ADD THIS METHOD
+                    : CultureInfo.CurrentCulture.DateTimeFormat.GetMonthName(today.Month),
                     DailySleep = dailySleep,
                     MonthlyAverageSleep = new TimeSpan(avgTicks),
                     MonthlyAverageSleepFormatted = FormatTimeSpan(new TimeSpan(avgTicks)),
@@ -571,7 +577,7 @@ namespace MomEase.infra.Services
 
         #region Helper Methods
 
-        private SleepRecordDto MapToDto(ChildSleepRecord record, SleepReference? reference = null)
+        private SleepRecordDto MapToDto(ChildSleepRecord record, SleepReference? reference = null, string lang = "en")
         {
             return new SleepRecordDto
             {
@@ -592,7 +598,7 @@ namespace MomEase.infra.Services
 
                 Quality = record.Quality,  // ✅ NEW
                 Notes = record.Notes,
-                Status = GetSleepStatus(record.SleepDuration, reference),  // ✅ Changed
+                Status = GetSleepStatus(record.SleepDuration, reference,lang),  // ✅ Changed
 
                 ReferenceInfo = reference != null ? new SleepingReferenceInfo
                 {
@@ -611,9 +617,10 @@ namespace MomEase.infra.Services
             return $"{(int)timeSpan.Value.TotalHours}h {timeSpan.Value.Minutes}m";
         }
 
-        private string GetSleepStatus(TimeSpan? sleepHours, SleepReference? reference = null)
+        private string GetSleepStatus(TimeSpan? sleepHours, SleepReference? reference = null, string lang = "en")
         {
-            if (!sleepHours.HasValue) return "Unknown";
+            if (!sleepHours.HasValue)
+                return lang == "ar" ? "غير محدد" : "Unknown";
 
             if (reference != null && reference.SleepMinHours.HasValue && reference.SleepMaxHours.HasValue)
             {
@@ -622,17 +629,17 @@ namespace MomEase.infra.Services
                 var maxHours = reference.SleepMaxHours.Value.TotalHours;
 
                 if (hours >= minHours && hours <= maxHours)
-                    return "Good";
+                    return lang == "ar" ? "جيد" : "Good";
                 else if (hours < minHours)
-                    return "Poor";
+                    return lang == "ar" ? "سيء" : "Poor";
                 else
-                    return "Normal";
+                    return lang == "ar" ? "عادي" : "Normal";
             }
 
             var hrs = sleepHours.Value.TotalHours;
-            if (hrs >= 10) return "Good";
-            if (hrs >= 8) return "Normal";
-            return "Poor";
+            if (hrs >= 10) return lang == "ar" ? "جيد" : "Good";
+            if (hrs >= 8) return lang == "ar" ? "عادي" : "Normal";
+            return lang == "ar" ? "سيء" : "Poor";
         }
 
         /// <summary>
@@ -716,7 +723,26 @@ namespace MomEase.infra.Services
 
             return months < 0 ? 0 : months;
         }
+        private string GetArabicMonthName(int month)
+        {
+            var arabicMonths = new[]
+            {
+                "يناير",    // January
+                "فبراير",   // February
+                "مارس",     // March
+                "أبريل",    // April
+                "مايو",     // May
+                "يونيو",    // June
+                "يوليو",    // July
+                "أغسطس",    // August
+                "سبتمبر",   // September
+                "أكتوبر",   // October
+                "نوفمبر",   // November
+                "ديسمبر"    // December
+                };
 
+            return month >= 1 && month <= 12 ? arabicMonths[month - 1] : "Unknown";
+        }
         #endregion
     }
 }
