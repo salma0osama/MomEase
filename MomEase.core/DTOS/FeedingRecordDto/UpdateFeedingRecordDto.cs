@@ -14,8 +14,8 @@ namespace MomEase.core.DTOS.FeedingRecordDto
         public int FeedingTimesPerDay { get; set; }
 
         [Required(ErrorMessage = "Feeding type is required")]
-        [JsonConverter(typeof(JsonStringEnumConverter))]  
-        public FeedingTypeForBaby FeedingTypeForBaby { get; set; }
+        //[JsonConverter(typeof(JsonStringEnumConverter))]
+        public string FeedingTypeForBaby { get; set; } 
 
         [MaxLength(500, ErrorMessage = "Notes cannot exceed 500 characters")]
         public string? Notes { get; set; }

@@ -26,7 +26,7 @@ namespace MomEase.core.Entities
         public string Password { get; set; }
 
         [MaxLength(20)]
-        public string Phone { get; set; }
+        public string? Phone { get; set; }
 
         public int? Age { get; set; }
 
@@ -65,5 +65,7 @@ namespace MomEase.core.Entities
         public virtual ICollection<SearchHistory> SearchHistories { get; set; }
         public virtual ICollection<SavedArticles> SavedArticles { get; set; }
         public virtual ICollection<SavedPosts> SavedPosts { get; set; }
+        public virtual ICollection<CommentReply> CommentReplies { get; set; }
+        public virtual ICollection<CommentReaction> CommentReactions { get; set; }
     }
 }

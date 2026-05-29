@@ -18,15 +18,17 @@ namespace MomEase.infra.Services
         private readonly IMotherProfileRepository _motherProfileRepository;
         private readonly IAuthRepository _authRepository;
         private readonly IFileStorageService _fileStorageService;
-
+        private readonly IChildRepository _childRepository;
         public MotherProfileService(
             IMotherProfileRepository motherProfileRepository,
             IAuthRepository authRepository,
-            IFileStorageService fileStorageService)
+            IFileStorageService fileStorageService,
+            IChildRepository childRepository)
         {
             _motherProfileRepository = motherProfileRepository ?? throw new ArgumentNullException(nameof(motherProfileRepository));
             _authRepository = authRepository ?? throw new ArgumentNullException(nameof(authRepository));
             _fileStorageService = fileStorageService;
+            _childRepository = childRepository;
         }
 
         public async Task<MotherProfileResponseDto> CreateMotherProfileAsync(CreateMotherProfileDto createDto)
@@ -67,6 +69,7 @@ namespace MomEase.infra.Services
                     NumberOfChildren = motherProfile.NumberOfChildren,
                     MentalHealthStatus = motherProfile.MentalHealthStatus?.ToString(),
                     HealthStatus = motherProfile.HealthStatus?.ToString(),
+                    ProfilePictureUrl = motherProfile.ProfilePictureUrl,
                     CreatedAt = user.CreatedAt
                 };
             }
@@ -82,6 +85,7 @@ namespace MomEase.infra.Services
             {
                 // Get profile with user data
                 var motherProfile = await _motherProfileRepository.GetByUserIdWithUserAsync(userId);
+                var actualCount = await _childRepository.GetUserChildrenCountAsync(userId);
 
                 if (motherProfile == null)
                     throw new InvalidOperationException("Mother profile not found");
@@ -93,10 +97,11 @@ namespace MomEase.infra.Services
                     FirstName = motherProfile.User.FirstName,
                     LastName = motherProfile.User.LastName,
                     Email = motherProfile.User.Email,
-                    IsFirstTimeMother = motherProfile.IsFirstTimeMother,
-                    NumberOfChildren = motherProfile.NumberOfChildren,
+                    IsFirstTimeMother = actualCount == 1,
+                    NumberOfChildren = actualCount,
                     MentalHealthStatus = motherProfile.MentalHealthStatus?.ToString(),
                     HealthStatus = motherProfile.HealthStatus?.ToString(),
+                    ProfilePictureUrl = motherProfile.ProfilePictureUrl,
                     CreatedAt = motherProfile.User.CreatedAt
                 };
             }
@@ -135,6 +140,7 @@ namespace MomEase.infra.Services
                     NumberOfChildren = motherProfile.NumberOfChildren,
                     MentalHealthStatus = motherProfile.MentalHealthStatus?.ToString(),
                     HealthStatus = motherProfile.HealthStatus?.ToString(),
+                    ProfilePictureUrl = motherProfile.ProfilePictureUrl,
                     CreatedAt = user.CreatedAt
                 };
             }

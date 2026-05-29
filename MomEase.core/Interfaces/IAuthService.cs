@@ -21,5 +21,6 @@ namespace MomEase.core.Interfaces
         Task<bool> VerifyEmailAsync(VerifyEmailDto verifyEmailDto);
         Task<bool> ResendOtpAsync(string email);
         Task<AuthResponseDto> GoogleLoginAsync(GoogleLoginDto googleLoginDto, string ipAddress);
+        Task<AuthResponseDto> FacebookLoginAsync(string accessToken);
     }
 }

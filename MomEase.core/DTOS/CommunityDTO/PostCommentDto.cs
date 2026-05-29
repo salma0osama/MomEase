@@ -20,5 +20,10 @@
         public string Text { get; set; } = string.Empty;
         public DateTime CreatedAt { get; set; }
         public DateTime? UpdatedAt { get; set; }
+        public bool IsMyComment { get; set; }
+        public bool CanDelete { get; set; } // صاحب الكومنت أو صاحب البوست
+        public int RepliesCount { get; set; }
+        public int ReactionsCount { get; set; }
+        public string? MyReaction { get; set; }
     }
 }

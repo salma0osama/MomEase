@@ -176,11 +176,16 @@ namespace MomEase.api.Controllers
             {
                 return BadRequest(new { success = false, message = ex.Message });
             }
+            catch (UnauthorizedAccessException ex)          // ✅ زود الـ catch ده
+            {
+                return StatusCode(403, new { success = false, message = ex.Message });
+            }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error reviewing report {Id}", id);
-                return StatusCode(500, new { success = false, message = "An error occurred" });
+                return StatusCode(500, new { success = false, message = ex.Message }); // ✅ غير "An error occurred" لـ ex.Message مؤقتاً عشان تشوف الـ error الحقيقي
             }
+           
         }
 
 

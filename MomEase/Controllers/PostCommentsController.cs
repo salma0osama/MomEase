@@ -65,7 +65,8 @@ namespace MomEase.api.Controllers
         {
             try
             {
-                var comments = await _communityService.GetPostCommentsAsync(postId);
+                var userId = GetCurrentUserId();
+                var comments = await _communityService.GetPostCommentsAsync(postId, userId);
                 return Ok(new
                 {
                     success = true,
@@ -142,7 +143,8 @@ namespace MomEase.api.Controllers
             try
             {
                 var userId = GetCurrentUserId();
-                await _communityService.DeleteCommentAsync(id, postId, userId);
+                var isAdmin = User.IsInRole("ADMIN");
+                await _communityService.DeleteCommentAsync(id, postId, userId, isAdmin);
                 return Ok(new { success = true, message = "Comment deleted successfully" });
             }
             catch (KeyNotFoundException ex)

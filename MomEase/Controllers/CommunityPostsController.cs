@@ -144,7 +144,9 @@ namespace MomEase.api.Controllers
             try
             {
                 var userId = GetCurrentUserId();
-                await _communityService.DeletePostAsync(id, userId);
+                // تأكد إن الـ Role بالظبط زي اللي في الـ JWT
+                var isAdmin = User.IsInRole("ADMIN") || User.HasClaim("role", "ADMIN");
+                await _communityService.DeletePostAsync(id, userId, isAdmin);
                 return Ok(new { success = true, message = "Post deleted successfully" });
             }
             catch (KeyNotFoundException ex)

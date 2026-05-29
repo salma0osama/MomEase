@@ -73,5 +73,14 @@ namespace MomEase.infra.Repositories
         {
             return await _context.Assessments.AnyAsync(a => a.AssessmentId == assessmentId);
         }
+
+        public async Task<ScoreLevel?> GetByScoreAsync(int assessmentId, int score)
+        {
+            return await _context.ScoreLevels
+                .FirstOrDefaultAsync(sl =>
+                    sl.AssessmentId == assessmentId &&
+                    score >= sl.MinScore &&
+                    score <= sl.MaxScore);
+        }
     }
 }

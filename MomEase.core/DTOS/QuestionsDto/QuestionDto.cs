@@ -11,7 +11,7 @@ namespace MomEase.core.DTOS.QuestionsDto
         public int QuestionId { get; set; }
         public int AssessmentId { get; set; }
         public string QuestionText { get; set; }
-        public string? QuestionTextAr { get; set; }
+        //public string? QuestionTextAr { get; set; }
 
         public int QuestionOrder { get; set; }
         public bool IsReverse { get; set; }

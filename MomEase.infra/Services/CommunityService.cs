@@ -3,6 +3,7 @@ using MomEase.core.DTOS.CommunityDTO;
 using MomEase.core.Entities;
 using MomEase.core.Enums;
 using MomEase.core.Interfaces;
+using Microsoft.AspNetCore.Http;    
 
 namespace MomEase.infra.Services
 {
@@ -10,19 +11,23 @@ namespace MomEase.infra.Services
     {
         private readonly ICommunityRepository _communityRepository;
         private readonly IFileStorageService _fileStorageService;
-        private readonly INotificationService _notificationService; // ⬅️ إضافة
+        private readonly INotificationService _notificationService; 
         private readonly ILogger<CommunityService> _logger;
+        private readonly IHttpContextAccessor _httpContextAccessor;
+
 
         public CommunityService(
             ICommunityRepository communityRepository,
             IFileStorageService fileStorageService,
-            INotificationService notificationService, // ⬅️ إضافة
-            ILogger<CommunityService> logger)
+            INotificationService notificationService, 
+            ILogger<CommunityService> logger,
+            IHttpContextAccessor httpContextAccessor)
         {
             _communityRepository = communityRepository;
             _fileStorageService = fileStorageService;
-            _notificationService = notificationService; // ⬅️ إضافة
+            _notificationService = notificationService; 
             _logger = logger;
+            _httpContextAccessor = httpContextAccessor;
         }
 
         // ===== Posts =====
@@ -237,7 +242,7 @@ namespace MomEase.infra.Services
             }
         }
 
-        public async Task DeletePostAsync(int postId, int userId)
+        public async Task DeletePostAsync(int postId, int userId, bool isAdmin = false)
         {
             try
             {
@@ -245,9 +250,10 @@ namespace MomEase.infra.Services
                 if (post == null)
                     throw new KeyNotFoundException("Post not found");
 
-                if (post.UserId != userId)
+                // الأدمن يقدر يمسح أي بوست
+                if (!isAdmin && post.UserId != userId)
                     throw new UnauthorizedAccessException(
-                        "You are not authorized to delete this post");
+                        "You are not authorized to delete this post"); ;
 
                 // Delete media files from storage
                 if (post.PostMedia != null && post.PostMedia.Any())
@@ -370,7 +376,7 @@ namespace MomEase.infra.Services
                 _logger.LogInformation("Comment added {CommentId} on post {PostId}",
                     added.CommentId, postId);
 
-                return MapToCommentDto(full!);
+                return MapToCommentDto(full!, userId, post.UserId);
             }
             catch (Exception ex)
             {
@@ -379,7 +385,8 @@ namespace MomEase.infra.Services
             }
         }
 
-        public async Task<List<PostCommentDto>> GetPostCommentsAsync(int postId)
+        public async Task<List<PostCommentDto>> GetPostCommentsAsync(
+        int postId, int currentUserId)
         {
             try
             {
@@ -388,7 +395,8 @@ namespace MomEase.infra.Services
                     throw new KeyNotFoundException("Post not found");
 
                 var comments = await _communityRepository.GetPostCommentsAsync(postId);
-                return comments.Select(c => MapToCommentDto(c)).ToList();
+                return comments.Select(c =>
+                    MapToCommentDto(c, currentUserId, post.UserId)).ToList();
             }
             catch (Exception ex)
             {
@@ -404,8 +412,9 @@ namespace MomEase.infra.Services
                 var comment = await _communityRepository.GetCommentByIdAsync(commentId);
                 if (comment == null || comment.PostId != postId)
                     throw new KeyNotFoundException("Comment not found");
+                var post = await _communityRepository.GetPostByIdAsync(postId);
 
-                return MapToCommentDto(comment);
+                return MapToCommentDto(comment, comment.UserId, post!.UserId);
             }
             catch (Exception ex)
             {
@@ -436,8 +445,9 @@ namespace MomEase.infra.Services
                 var updated = await _communityRepository.UpdateCommentAsync(comment);
 
                 _logger.LogInformation("Comment updated {CommentId}", commentId);
+                var post = await _communityRepository.GetPostByIdAsync(postId);
 
-                return MapToCommentDto(updated);
+                return MapToCommentDto(updated, userId, post!.UserId);
             }
             catch (Exception ex)
             {
@@ -446,7 +456,8 @@ namespace MomEase.infra.Services
             }
         }
 
-        public async Task DeleteCommentAsync(int commentId, int postId, int userId)
+        public async Task DeleteCommentAsync(
+    int commentId, int postId, int userId, bool isAdmin = false)
         {
             try
             {
@@ -454,13 +465,16 @@ namespace MomEase.infra.Services
                 if (comment == null || comment.PostId != postId)
                     throw new KeyNotFoundException("Comment not found");
 
-                if (comment.UserId != userId)
+                // ✅ صاحب الكومنت أو صاحب البوست أو الأدمن
+                var post = await _communityRepository.GetPostByIdAsync(postId);
+                bool isPostOwner = post?.UserId == userId;
+                bool isCommentOwner = comment.UserId == userId;
+
+                if (!isCommentOwner && !isPostOwner && !isAdmin)
                     throw new UnauthorizedAccessException(
                         "You are not authorized to delete this comment");
 
                 await _communityRepository.DeleteCommentAsync(comment);
-
-                _logger.LogInformation("Comment deleted {CommentId}", commentId);
             }
             catch (Exception ex)
             {
@@ -468,7 +482,6 @@ namespace MomEase.infra.Services
                 throw;
             }
         }
-
         // ===== Reactions =====
 
         public async Task<PostReactionDto> AddReactionAsync(
@@ -762,7 +775,7 @@ namespace MomEase.infra.Services
                 return new PostReportDto
                 {
                     ReportId = added.ReportId,
-                    PostId = added.PostId,
+                    PostId = added.PostId ?? 0,
                     ReporterId = added.ReporterId,
                     ReporterName = $"{post.User?.FirstName} {post.User?.LastName}",
                     Reason = added.Reason,
@@ -854,7 +867,9 @@ namespace MomEase.infra.Services
                     throw new ArgumentException(
                         "Invalid action. Must be: Dismiss, DeletePost, Warn");
 
-                var post = await _communityRepository.GetPostByIdAsync(report.PostId);
+                var post = await _communityRepository.GetPostByIdNoTrackingAsync(report.PostId ?? 0 );
+                if (dto.Action == "DeletePost" && post == null)
+                    throw new KeyNotFoundException("Post not found or already deleted");
 
                 switch (dto.Action)
                 {
@@ -890,6 +905,13 @@ namespace MomEase.infra.Services
                             {
                                 _logger.LogError(ex, "Failed to send post deletion notification");
                             }
+                        }
+                        else
+                        {
+                            // ✅ البوست اتحذف قبل كده — نكمل بدون error
+                            _logger.LogWarning(
+                                "Post {PostId} already deleted when reviewing report {ReportId}",
+                                report.PostId, reportId);
                         }
                         break;
 
@@ -927,26 +949,305 @@ namespace MomEase.infra.Services
                         break;
                 }
 
-                report.ReviewedById = adminId;
-                report.ReviewedAt = DateTime.Now;
-                report.Action = dto.Action;
-                report.AdminNote = dto.AdminNote?.Trim();
+                await _communityRepository.UpdateReportFields(
+    reportId, adminId, dto.Action, dto.AdminNote?.Trim());
 
-                await _communityRepository.UpdateReportAsync(report);
-
+                // ✅ جيبي الـ report بدون Include للـ Post عشان ممكن يكون اتحذف
                 var freshReport = await _communityRepository.GetReportByIdAsync(reportId);
 
-                _logger.LogInformation(
-                    "Report {ReportId} reviewed by admin {AdminId} with action {Action}",
-                    reportId, adminId, dto.Action);
-
-                return MapToReportDto(freshReport!);
+                // ✅ لو البوست اتحذف return مباشرة بدون Post data
+                return new PostReportDto
+                {
+                    ReportId = reportId,
+                    PostId = report.PostId??0,
+                    ReporterId = report.ReporterId,
+                    ReporterName = freshReport?.Reporter != null
+                        ? $"{freshReport.Reporter.FirstName} {freshReport.Reporter.LastName}"
+                        : "",
+                    Reason = report.Reason,
+                    ReviewedByName = freshReport?.ReviewedBy != null
+                        ? $"{freshReport.ReviewedBy.FirstName} {freshReport.ReviewedBy.LastName}"
+                        : "",
+                    Action = dto.Action,
+                    AdminNote = dto.AdminNote?.Trim(),
+                    CreatedAt = report.CreatedAt,
+                    ReviewedAt = DateTime.Now,
+                    IsReviewed = true
+                };
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error reviewing report {ReportId}", reportId);
                 throw;
             }
+        }
+        // ===== Comment Replies =====
+
+        public async Task<CommentReplyDto> AddReplyAsync(
+            int commentId, int userId, CreateReplyDto dto)
+        {
+            try
+            {
+                var comment = await _communityRepository.GetCommentByIdAsync(commentId);
+                if (comment == null)
+                    throw new KeyNotFoundException("Comment not found");
+
+                if (string.IsNullOrWhiteSpace(dto.Text))
+                    throw new ArgumentException("Reply text cannot be empty");
+
+                var reply = new CommentReply
+                {
+                    CommentId = commentId,
+                    UserId = userId,
+                    Text = dto.Text.Trim(),
+                    CreatedAt = DateTime.Now
+                };
+
+                var added = await _communityRepository.AddReplyAsync(reply);
+                var full = await _communityRepository.GetReplyByIdAsync(added.ReplyId);
+
+                return MapToReplyDto(full!, userId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error adding reply to comment {CommentId}", commentId);
+                throw;
+            }
+        }
+
+        public async Task<List<CommentReplyDto>> GetCommentRepliesAsync(
+            int commentId, int currentUserId)
+        {
+            try
+            {
+                var comment = await _communityRepository.GetCommentByIdAsync(commentId);
+                if (comment == null)
+                    throw new KeyNotFoundException("Comment not found");
+
+                var replies = await _communityRepository.GetCommentRepliesAsync(commentId);
+                return replies.Select(r => MapToReplyDto(r, currentUserId)).ToList();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving replies for comment {CommentId}", commentId);
+                throw;
+            }
+        }
+
+        public async Task<CommentReplyDto> UpdateReplyAsync(
+            int replyId, int commentId, int userId, UpdateReplyDto dto)
+        {
+            try
+            {
+                var reply = await _communityRepository.GetReplyByIdAsync(replyId);
+                if (reply == null || reply.CommentId != commentId)
+                    throw new KeyNotFoundException("Reply not found");
+
+                if (reply.UserId != userId)
+                    throw new UnauthorizedAccessException(
+                        "You are not authorized to update this reply");
+
+                if (string.IsNullOrWhiteSpace(dto.Text))
+                    throw new ArgumentException("Reply text cannot be empty");
+
+                reply.Text = dto.Text.Trim();
+                reply.UpdatedAt = DateTime.Now;
+
+                var updated = await _communityRepository.UpdateReplyAsync(reply);
+                return MapToReplyDto(updated, userId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating reply {ReplyId}", replyId);
+                throw;
+            }
+        }
+
+        public async Task DeleteReplyAsync(int replyId, int commentId, int userId)
+        {
+            try
+            {
+                var reply = await _communityRepository.GetReplyByIdAsync(replyId);
+                if (reply == null || reply.CommentId != commentId)
+                    throw new KeyNotFoundException("Reply not found");
+
+                if (reply.UserId != userId)
+                    throw new UnauthorizedAccessException(
+                        "You are not authorized to delete this reply");
+
+                await _communityRepository.DeleteReplyAsync(reply);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error deleting reply {ReplyId}", replyId);
+                throw;
+            }
+        }
+
+        // ===== Comment Reactions =====
+
+        public async Task<CommentReactionDto> AddCommentReactionAsync(
+            int commentId, int userId, AddCommentReactionDto dto)
+        {
+            try
+            {
+                var comment = await _communityRepository.GetCommentByIdAsync(commentId);
+                if (comment == null)
+                    throw new KeyNotFoundException("Comment not found");
+
+                if (!Enum.TryParse<ReactionType>(dto.ReactionType, true, out var reactionType))
+                    throw new ArgumentException(
+                        "Invalid reaction type. Must be: LIKE, LOVE, SUPPORT, HELPFUL");
+
+                var existing = await _communityRepository
+                    .GetUserCommentReactionAsync(commentId, userId);
+                if (existing != null)
+                    throw new InvalidOperationException(
+                        "You already reacted to this comment. Use PUT to update.");
+
+                var reaction = new CommentReaction
+                {
+                    CommentId = commentId,
+                    UserId = userId,
+                    ReactionType = reactionType
+                };
+
+                var added = await _communityRepository.AddCommentReactionAsync(reaction);
+                return MapToCommentReactionDto(added);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error adding reaction to comment {CommentId}", commentId);
+                throw;
+            }
+        }
+
+        public async Task<List<CommentReactionDto>> GetCommentReactionsAsync(int commentId)
+        {
+            try
+            {
+                var comment = await _communityRepository.GetCommentByIdAsync(commentId);
+                if (comment == null)
+                    throw new KeyNotFoundException("Comment not found");
+
+                var reactions = await _communityRepository.GetCommentReactionsAsync(commentId);
+                return reactions.Select(r => MapToCommentReactionDto(r)).ToList();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving reactions for comment {CommentId}", commentId);
+                throw;
+            }
+        }
+
+        public async Task<CommentReactionsCountDto> GetCommentReactionsCountAsync(int commentId)
+        {
+            try
+            {
+                var reactions = await _communityRepository.GetCommentReactionsAsync(commentId);
+                var byType = reactions
+                    .GroupBy(r => r.ReactionType.ToString())
+                    .ToDictionary(g => g.Key, g => g.Count());
+
+                return new CommentReactionsCountDto
+                {
+                    TotalCount = reactions.Count,
+                    ByType = byType
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving reactions count for comment {CommentId}", commentId);
+                throw;
+            }
+        }
+
+      
+        public async Task<CommentReactionDto> UpdateCommentReactionAsync(
+    int commentId, int userId, UpdateCommentReactionDto dto)
+        {
+            try
+            {
+                var reaction = await _communityRepository
+                    .GetUserCommentReactionAsync(commentId, userId);
+                if (reaction == null)
+                    throw new KeyNotFoundException("Reaction not found");
+
+                if (!Enum.TryParse<ReactionType>(dto.ReactionType, true, out var reactionType))
+                    throw new ArgumentException(
+                        "Invalid reaction type. Must be: LIKE, LOVE, SUPPORT, HELPFUL");
+
+                reaction.ReactionType = reactionType;
+                var updated = await _communityRepository.UpdateCommentReactionAsync(reaction);
+
+                // ✅ Reload مع الـ User data
+                var fresh = await _communityRepository
+                    .GetCommentReactionByIdAsync(updated.ReactionId);
+
+                return MapToCommentReactionDto(fresh!);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating reaction for comment {CommentId}", commentId);
+                throw;
+            }
+        }
+
+        public async Task DeleteCommentReactionAsync(int commentId, int userId)
+        {
+            try
+            {
+                var reaction = await _communityRepository
+                    .GetUserCommentReactionAsync(commentId, userId);
+                if (reaction == null)
+                    throw new KeyNotFoundException("Reaction not found");
+
+                await _communityRepository.DeleteCommentReactionAsync(reaction);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error deleting reaction for comment {CommentId}", commentId);
+                throw;
+            }
+        }
+
+        // ===== Private Mappers =====
+
+        private CommentReplyDto MapToReplyDto(CommentReply reply, int currentUserId)
+        {
+            return new CommentReplyDto
+            {
+                ReplyId = reply.ReplyId,
+                CommentId = reply.CommentId,
+                UserId = reply.UserId,
+                UserName = reply.User != null
+                    ? $"{reply.User.FirstName} {reply.User.LastName}"
+                    : "",
+                UserPhoto = reply.User?.MotherProfile?.ProfilePictureUrl != null
+                    ? GetFullUrl(reply.User.MotherProfile.ProfilePictureUrl)
+                    : null,
+                Text = reply.Text,
+                IsMyReply = reply.UserId == currentUserId,
+                CreatedAt = reply.CreatedAt,
+                UpdatedAt = reply.UpdatedAt
+            };
+        }
+
+        private CommentReactionDto MapToCommentReactionDto(CommentReaction reaction)
+        {
+            return new CommentReactionDto
+            {
+                ReactionId = reaction.ReactionId,
+                CommentId = reaction.CommentId,
+                UserId = reaction.UserId,
+                UserName = reaction.User != null
+                    ? $"{reaction.User.FirstName} {reaction.User.LastName}"
+                    : "",
+                UserPhoto = reaction.User?.MotherProfile?.ProfilePictureUrl != null
+                    ? GetFullUrl(reaction.User.MotherProfile.ProfilePictureUrl)
+                    : null,
+                ReactionType = reaction.ReactionType.ToString()
+            };
         }
 
         // ===== Private Helpers =====
@@ -991,23 +1292,30 @@ namespace MomEase.infra.Services
                 UserPhoto = post.User?.MotherProfile?.ProfilePictureUrl,
                 Text = post.Text,
                 Media = post.PostMedia?.OrderBy(m => m.Order)
-                    .Select(m => new PostMediaDto
-                    {
-                        MediaId = m.MediaId,
-                        MediaUrl = m.MediaUrl,
-                        MediaType = m.MediaType.ToString(),
-                        Order = m.Order
-                    }).ToList() ?? new(),
+
+    .Select(m => new PostMediaDto
+    {
+        MediaId = m.MediaId,
+        MediaUrl = GetFullUrl(m.MediaUrl),
+        MediaType = m.MediaType.ToString(),
+        Order = m.Order
+    }).ToList() ?? new(),
                 CommentsCount = post.PostComments?.Count ?? 0,
                 ReactionsCount = post.PostReactions?.Count ?? 0,
                 MyReaction = myReaction?.ReactionType.ToString(),
                 CreatedAt = post.CreatedAt,
-                UpdatedAt = post.UpdatedAt
+                UpdatedAt = post.UpdatedAt,
+                IsSaved = post.SavedPosts?.Any(s => s.UserId == currentUserId) ?? false,
+                IsMyPost = post.UserId == currentUserId
             };
         }
 
-        private PostCommentDto MapToCommentDto(PostComments comment)
+        private PostCommentDto MapToCommentDto(
+    PostComments comment, int currentUserId, int postOwnerId)
         {
+            var myReaction = comment.Reactions?
+                .FirstOrDefault(r => r.UserId == currentUserId);
+
             return new PostCommentDto
             {
                 CommentId = comment.CommentId,
@@ -1016,8 +1324,15 @@ namespace MomEase.infra.Services
                 UserName = comment.User != null
                     ? $"{comment.User.FirstName} {comment.User.LastName}"
                     : "",
-                UserPhoto = comment.User?.MotherProfile?.ProfilePictureUrl,
+                UserPhoto = comment.User?.MotherProfile?.ProfilePictureUrl != null
+                    ? GetFullUrl(comment.User.MotherProfile.ProfilePictureUrl)
+                    : null,
                 Text = comment.Text,
+                IsMyComment = comment.UserId == currentUserId,
+                CanDelete = comment.UserId == currentUserId || postOwnerId == currentUserId,
+                RepliesCount = comment.Replies?.Count ?? 0,
+                ReactionsCount = comment.Reactions?.Count ?? 0,
+                MyReaction = myReaction?.ReactionType.ToString(),
                 CreatedAt = comment.CreatedAt,
                 UpdatedAt = comment.UpdatedAt
             };
@@ -1033,6 +1348,9 @@ namespace MomEase.infra.Services
                 UserName = reaction.User != null
                     ? $"{reaction.User.FirstName} {reaction.User.LastName}"
                     : "",
+                UserPhoto = reaction.User?.MotherProfile?.ProfilePictureUrl != null
+                    ? GetFullUrl(reaction.User.MotherProfile.ProfilePictureUrl)
+                    : null,
                 ReactionType = reaction.ReactionType.ToString()
             };
         }
@@ -1042,7 +1360,7 @@ namespace MomEase.infra.Services
             return new PostReportDto
             {
                 ReportId = report.ReportId,
-                PostId = report.PostId,
+                PostId = report.PostId??0,
                 ReporterId = report.ReporterId,
                 ReporterName = report.Reporter != null
                     ? $"{report.Reporter.FirstName} {report.Reporter.LastName}"
@@ -1057,6 +1375,16 @@ namespace MomEase.infra.Services
                 ReviewedAt = report.ReviewedAt,
                 IsReviewed = report.ReviewedById != null
             };
+        }
+        private string GetFullUrl(string relativeUrl)
+        {
+            if (string.IsNullOrEmpty(relativeUrl)) return relativeUrl;
+            if (relativeUrl.StartsWith("http")) return relativeUrl;
+
+            var request = _httpContextAccessor.HttpContext?.Request;
+            if (request == null) return relativeUrl;
+
+            return $"{request.Scheme}://{request.Host}{relativeUrl}";
         }
     }
 }

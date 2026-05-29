@@ -40,6 +40,8 @@ namespace MomEase.core.DTOS.CommunityDTO
         public string? MyReaction { get; set; }
         public DateTime CreatedAt { get; set; }
         public DateTime? UpdatedAt { get; set; }
+        public bool IsSaved { get; set; }
+        public bool IsMyPost { get; set; }
     }
 
     public class PostsPagedDto

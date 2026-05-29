@@ -47,5 +47,22 @@ namespace MomEase.core.Interfaces
         Task<List<PostReports>> GetPendingReportsAsync();
         Task<List<PostReports>> GetReviewedReportsAsync();
         Task<PostReports> UpdateReportAsync(PostReports report);
+
+        Task<CommunityPosts?> GetPostByIdNoTrackingAsync(int postId);
+        Task UpdateReportFields(int reportId, int adminId, string action, string? adminNote);
+        // ===== Comment Replies =====
+        Task<CommentReply> AddReplyAsync(CommentReply reply);
+        Task<CommentReply?> GetReplyByIdAsync(int replyId);
+        Task<List<CommentReply>> GetCommentRepliesAsync(int commentId);
+        Task<CommentReply> UpdateReplyAsync(CommentReply reply);
+        Task DeleteReplyAsync(CommentReply reply);
+
+        // ===== Comment Reactions =====
+        Task<CommentReaction> AddCommentReactionAsync(CommentReaction reaction);
+        Task<CommentReaction?> GetUserCommentReactionAsync(int commentId, int userId);
+        Task<List<CommentReaction>> GetCommentReactionsAsync(int commentId);
+        Task<CommentReaction> UpdateCommentReactionAsync(CommentReaction reaction);
+        Task DeleteCommentReactionAsync(CommentReaction reaction);
+        Task<CommentReaction?> GetCommentReactionByIdAsync(int reactionId);
     }
 }

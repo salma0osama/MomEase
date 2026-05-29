@@ -12,7 +12,7 @@ namespace MomEase.core.Entities
     {
         [Key]
         public int ReportId { get; set; }
-        public int PostId { get; set; }
+        public int? PostId { get; set; }
         public int ReporterId { get; set; }
         [MaxLength(500)]
         public string Reason { get; set; } = string.Empty;

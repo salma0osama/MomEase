@@ -1,6 +1,8 @@
-﻿using MomEase.core.DTOS.ArticlesDTOs;
+﻿using Microsoft.AspNetCore.Http;
+using MomEase.core.DTOS.ArticlesDTOs;
 using MomEase.core.Entities;
 using MomEase.core.Interfaces;
+using MomEase.infra.Helpers;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -13,13 +15,15 @@ namespace MomEase.infra.Services
     {
         private readonly ISavedArticleRepository _savedArticleRepo;
         private readonly IArticleRepository _articleRepo;
-
+        private readonly IHttpContextAccessor _httpContextAccessor;
         public SavedArticleService(
             ISavedArticleRepository savedArticleRepo,
-            IArticleRepository articleRepo)
+            IArticleRepository articleRepo,
+            IHttpContextAccessor httpContextAccessor)
         {
             _savedArticleRepo = savedArticleRepo;
             _articleRepo = articleRepo;
+            _httpContextAccessor = httpContextAccessor;
         }
 
         public async Task<SavedArticleDto> SaveArticleAsync(int userId, int articleId)
@@ -59,15 +63,18 @@ namespace MomEase.infra.Services
         public async Task<IEnumerable<SavedArticleDto>> GetSavedArticlesAsync(int userId)
         {
             var savedArticles = await _savedArticleRepo.GetByUserIdAsync(userId);
+            var lang = GetLang(); // ✅ أضف
 
             return savedArticles.Select(s => new SavedArticleDto
             {
                 SavedArticleId = s.SavedArticleId,
                 ArticleId = s.Article.ArticleId,
-                Title = s.Article.Title,
+                Title = LanguageHelper.GetLocalized(s.Article.TitleAr, s.Article.Title, lang),             // ✅
+                ShortDescription = GetShortDescription(LanguageHelper.GetLocalized(s.Article.ContentAr, s.Article.Content, lang)),
                 ImageUrl = s.Article.ImageUrl,
-                CategoryName = s.Article.Category?.Name,
-                ReadingTimeMinutes = CalculateReadingTime(s.Article.Content),
+                CategoryName = LanguageHelper.GetLocalized(s.Article.Category?.NameAr, s.Article.Category?.Name, lang), // ✅
+                ReadingTimeMinutes = CalculateReadingTime(
+                    LanguageHelper.GetLocalized(s.Article.ContentAr, s.Article.Content, lang)),             // ✅
                 SavedAt = s.SavedAt
             });
         }
@@ -89,6 +96,19 @@ namespace MomEase.infra.Services
             int wordCount = content.Split(new[] { ' ', '\n', '\r' },
                 StringSplitOptions.RemoveEmptyEntries).Length;
             return (int)Math.Ceiling(wordCount / 200.0);
+        }
+        private string GetLang()
+        {
+            return LanguageHelper.GetLang(_httpContextAccessor);
+        }
+        private string GetShortDescription(string content)
+        {
+            if (string.IsNullOrEmpty(content))
+                return string.Empty;
+
+            return content.Length <= 150
+                ? content
+                : content.Substring(0, 150) + "...";
         }
     }
 }

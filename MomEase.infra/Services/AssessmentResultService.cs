@@ -4,6 +4,10 @@ using MomEase.core.DTOS.AssessmentDto;
 using MomEase.core.Entities;
 using MomEase.core.Interfaces;
 using MomEase.infra.Helpers;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 
 namespace MomEase.infra.Services
 {
@@ -41,6 +45,9 @@ namespace MomEase.infra.Services
             _logger = logger;
         }
 
+        // ═══════════════════════════════════════════════════════
+        // SUBMIT ASSESSMENT
+        // ═══════════════════════════════════════════════════════
         public async Task<(AssessmentResultDto? result, string? error)> SubmitAssessmentAsync(
             int userId,
             int assessmentId,
@@ -48,159 +55,148 @@ namespace MomEase.infra.Services
         {
             try
             {
-                _logger.LogInformation("📝 User {UserId} submitting assessment {AssessmentId}", userId, assessmentId);
+                _logger.LogInformation(
+                    "📝 User {UserId} submitting Assessment {AssessmentId}",
+                    userId, assessmentId);
 
-                // Validate answers
-                if (dto.Answers == null || !dto.Answers.Any())
-                    return (null, "No answers provided");
+                // 1️⃣ Validate Questions
+                var questions = await _questionRepo.GetAllByAssessmentAsync(assessmentId);
+                var questionIds = questions.Select(q => q.QuestionId).ToHashSet();
 
-                // Calculate total score
-                int totalScore = 0;
-                foreach (var answer in dto.Answers)
+                if (dto.Answers.Any(a => !questionIds.Contains(a.QuestionId)))
                 {
-                    var question = await _questionRepo.GetByIdAsync(assessmentId, answer.QuestionId);
-                    if (question == null)
-                        return (null, $"Question {answer.QuestionId} not found");
-
-                    var option = await _optionRepo.GetByIdAsync(answer.QuestionId, answer.OptionId);
-                    if (option == null)
-                        return (null, $"Option {answer.OptionId} not found for question {answer.QuestionId}");
-
-                    // Handle reverse scoring
-                    int score = question.IsReverse ? (5 - option.Score) : option.Score;
-                    totalScore += score;
+                    return (null, "Invalid question ID in answers.");
                 }
 
-                _logger.LogInformation("📊 Total score calculated: {TotalScore}", totalScore);
+                // 2️⃣ Calculate Total Score
+                int totalScore = 0;
+                var userResponses = new List<UserResponse>();
 
-                // Find matching score level
-                var scoreLevel = await _scoreLevelRepo.GetLevelByScoreAsync(assessmentId, totalScore);
+                foreach (var answer in dto.Answers)
+                {
+                    var option = await _optionRepo.GetByIdAsync(answer.QuestionId, answer.OptionId);
+                    if (option == null || option.QuestionId != answer.QuestionId)
+                    {
+                        return (null, $"Invalid option {answer.OptionId} for question {answer.QuestionId}.");
+                    }
+
+                    var question = questions.FirstOrDefault(q => q.QuestionId == answer.QuestionId);
+                    int computedScore = question?.IsReverse == true
+                        ? (option.Score == 0 ? 3 : option.Score == 1 ? 2 : option.Score == 2 ? 1 : 0)
+                        : option.Score;
+
+                    totalScore += computedScore;
+
+                    userResponses.Add(new UserResponse
+                    {
+                        QuestionId = answer.QuestionId,
+                        OptionId = answer.OptionId,
+                        ComputedScore = computedScore
+                    });
+                }
+
+                _logger.LogInformation(
+                    "✅ Total score calculated: {TotalScore} for user {UserId}",
+                    totalScore, userId);
+
+                // 3️⃣ Find Score Level
+                var scoreLevel = await _scoreLevelRepo.GetByScoreAsync(assessmentId, totalScore);
                 if (scoreLevel == null)
-                    return (null, $"No score level found for score {totalScore}");
+                {
+                    return (null, $"No score level found for score {totalScore} in assessment {assessmentId}.");
+                }
 
-                // Create assessment result
+                // 4️⃣ Save Assessment Result
                 var result = new AssessmentResult
                 {
                     UserId = userId,
                     AssessmentId = assessmentId,
                     TotalScore = totalScore,
                     LevelId = scoreLevel.LevelId,
-                    CompletedAt = DateTime.Now
+                    CompletedAt = DateTime.UtcNow
                 };
 
                 var savedResult = await _resultRepo.CreateAsync(result);
 
-                // Save individual responses
-                foreach (var answer in dto.Answers)
+                // 5️⃣ Save User Responses
+                foreach (var response in userResponses)
                 {
-                    var question = await _questionRepo.GetByIdAsync(assessmentId, answer.QuestionId);
-                    var option = await _optionRepo.GetByIdAsync(answer.QuestionId, answer.OptionId);
-
-                    int score = question!.IsReverse ? (5 - option!.Score) : option!.Score;
-
-                    var response = new UserResponse
-                    {
-                        ResultId = savedResult.ResultId,
-                        QuestionId = answer.QuestionId,
-                        OptionId = answer.OptionId,
-                        ComputedScore = score
-                    };
-
+                    response.ResultId = savedResult.ResultId;
                     await _responseRepo.CreateAsync(response);
                 }
 
-                // ✅ إرسال Notification حسب النتيجة
-                await SendAssessmentResultNotificationAsync(userId, scoreLevel, totalScore);
+                _logger.LogInformation(
+                    "💾 Assessment result saved with ID {ResultId}",
+                    savedResult.ResultId);
 
-                // ✅ إنشاء Follow-up Plan
-                try
+                // 6️⃣ Send Notification
+                await SendAssessmentResultNotificationAsync(userId, scoreLevel);
+
+                // 7️⃣ Mental Health Follow-up (EPDS only)
+                if (assessmentId == 1 && totalScore >= 13)
                 {
+                    _logger.LogInformation(
+                        "🧠 Creating mental health follow-up for user {UserId} (Score: {Score})",
+                        userId, totalScore);
+
                     await _followUpService.CreateFollowUpPlanAsync(
                         userId,
                         savedResult.ResultId,
                         scoreLevel.LevelName);
-
-                    _logger.LogInformation(
-                        "✅ Follow-up plan created for user {UserId}",
-                        userId);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex,
-                        "⚠️ Failed to create follow-up plan for user {UserId}, but assessment saved successfully",
-                        userId);
-                    // لا نرمي Exception - الـ Assessment اتحفظ بنجاح
                 }
 
-                _logger.LogInformation("✅ Assessment submitted successfully. ResultId: {ResultId}", savedResult.ResultId);
+                // 8️⃣ Return Result
+                var lang = LanguageHelper.GetLang(_httpContextAccessor);
+                savedResult.ScoreLevel = scoreLevel;
 
-                return (new AssessmentResultDto
-                {
-                    ResultId = savedResult.ResultId,
-                    AssessmentId = savedResult.AssessmentId,
-                    TotalScore = savedResult.TotalScore,
-                    LevelName = scoreLevel.LevelName,
-                    Advice = scoreLevel.Advice,
-                    CompletedAt = savedResult.CompletedAt
-                }, null);
+                return (MapToResultDto(savedResult, lang), null);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "❌ Error submitting assessment");
-                throw new InvalidOperationException($"Failed to submit assessment: {ex.Message}", ex);
+                _logger.LogError(ex,
+                    "❌ Error submitting assessment for user {UserId}",
+                    userId);
+                throw;
             }
         }
 
+        // ═══════════════════════════════════════════════════════
+        // GET USER RESULTS
+        // ═══════════════════════════════════════════════════════
         public async Task<IEnumerable<AssessmentResultDto>> GetUserResultsAsync(int userId)
         {
             var lang = LanguageHelper.GetLang(_httpContextAccessor);
             var results = await _resultRepo.GetByUserIdAsync(userId);
 
-            return results.Select(r => new AssessmentResultDto
-            {
-                ResultId = r.ResultId,
-                AssessmentId = r.AssessmentId,
-                TotalScore = r.TotalScore,
-                LevelName = LanguageHelper.GetLocalized(
-                    r.ScoreLevel?.LevelNameAr,
-                    r.ScoreLevel?.LevelName,
-                    lang),
-                Advice = LanguageHelper.GetLocalized(
-                    r.ScoreLevel?.AdviceAr,
-                    r.ScoreLevel?.Advice,
-                    lang),
-                CompletedAt = r.CompletedAt
-            });
+            return results.Select(r => MapToResultDto(r, lang));
         }
 
+        // ═══════════════════════════════════════════════════════
+        // GET RESULT BY ID
+        // ═══════════════════════════════════════════════════════
         public async Task<AssessmentResultDto?> GetResultByIdAsync(int userId, int resultId)
         {
             var lang = LanguageHelper.GetLang(_httpContextAccessor);
             var result = await _resultRepo.GetByIdAsync(userId, resultId);
             if (result == null) return null;
 
-            return new AssessmentResultDto
-            {
-                ResultId = result.ResultId,
-                AssessmentId = result.AssessmentId,
-                TotalScore = result.TotalScore,
-                LevelName = LanguageHelper.GetLocalized(
-                    result.ScoreLevel?.LevelNameAr,
-                    result.ScoreLevel?.LevelName,
-                    lang),
-                Advice = LanguageHelper.GetLocalized(
-                    result.ScoreLevel?.AdviceAr,
-                    result.ScoreLevel?.Advice,
-                    lang),
-                CompletedAt = result.CompletedAt
-            };
+            return MapToResultDto(result, lang);
         }
 
+        // ═══════════════════════════════════════════════════════
+        // GET RESULT DETAILS (with Responses)
+        // ═══════════════════════════════════════════════════════
         public async Task<AssessmentResultDetailsDto?> GetResultDetailsAsync(int userId, int resultId)
         {
             var lang = LanguageHelper.GetLang(_httpContextAccessor);
             var result = await _resultRepo.GetByIdWithResponsesAsync(userId, resultId);
             if (result == null) return null;
+
+            // ⬅️ Get static recommendations
+            var recommendations = RecommendationsHelper.GetRecommendations(
+                result.ScoreLevel?.LevelName ?? "Minimal",
+                lang
+            );
 
             return new AssessmentResultDetailsDto
             {
@@ -215,6 +211,7 @@ namespace MomEase.infra.Services
                     result.ScoreLevel?.AdviceAr,
                     result.ScoreLevel?.Advice,
                     lang),
+                Recommendations = recommendations, // ⬅️ Static recommendations
                 CompletedAt = result.CompletedAt,
                 Responses = result.UserResponses?.Select(r => new UserResponseForAssessmentDto
                 {
@@ -234,16 +231,37 @@ namespace MomEase.infra.Services
             };
         }
 
+        // ═══════════════════════════════════════════════════════
+        // DELETE RESULT
+        // ═══════════════════════════════════════════════════════
         public async Task<bool> DeleteResultAsync(int userId, int resultId)
         {
             return await _resultRepo.DeleteAsync(userId, resultId);
         }
 
+        // ═══════════════════════════════════════════════════════
+        // GET LATEST RESULT
+        // ═══════════════════════════════════════════════════════
         public async Task<AssessmentResultDto?> GetLatestResultAsync(int userId)
         {
             var lang = LanguageHelper.GetLang(_httpContextAccessor);
             var result = await _resultRepo.GetLatestByUserIdAsync(userId);
             if (result == null) return null;
+
+            return MapToResultDto(result, lang);
+        }
+
+        // ═══════════════════════════════════════════════════════
+        // PRIVATE HELPERS
+        // ═══════════════════════════════════════════════════════
+
+        private AssessmentResultDto MapToResultDto(AssessmentResult result, string lang)
+        {
+            // ⬅️ Get static recommendations
+            var recommendations = RecommendationsHelper.GetRecommendations(
+                result.ScoreLevel?.LevelName ?? "Minimal",
+                lang
+            );
 
             return new AssessmentResultDto
             {
@@ -258,57 +276,41 @@ namespace MomEase.infra.Services
                     result.ScoreLevel?.AdviceAr,
                     result.ScoreLevel?.Advice,
                     lang),
+                Recommendations = recommendations, // ⬅️ Static recommendations
                 CompletedAt = result.CompletedAt
             };
         }
 
-        // ── PRIVATE HELPER: إرسال Notification حسب النتيجة ────────────────
-        private async Task SendAssessmentResultNotificationAsync(
-            int userId,
-            ScoreLevel scoreLevel,
-            int totalScore)
+        private async Task SendAssessmentResultNotificationAsync(int userId, ScoreLevel scoreLevel)
         {
             try
             {
-                string title;
-                string body;
-                string type;
+                var lang = LanguageHelper.GetLang(_httpContextAccessor);
 
-                if (scoreLevel.LevelName.Contains("Severe", StringComparison.OrdinalIgnoreCase))
+                string emoji = scoreLevel.LevelName switch
                 {
-                    title = "🚨 Assessment Result - Severe";
-                    body = $"Your assessment score ({totalScore} points) indicates severe symptoms. Please contact a mental health professional immediately.";
-                    type = "AssessmentResultSevere";
-                }
-                else if (scoreLevel.LevelName.Contains("Moderate", StringComparison.OrdinalIgnoreCase))
-                {
-                    title = "⚠️ Assessment Result - Moderate";
-                    body = $"Your assessment score ({totalScore} points) indicates moderate symptoms. We recommend speaking with a mental health specialist.";
-                    type = "AssessmentResultModerate";
-                }
-                else if (scoreLevel.LevelName.Contains("Mild", StringComparison.OrdinalIgnoreCase))
-                {
-                    title = "ℹ️ Assessment Result - Mild";
-                    body = $"Your assessment score ({totalScore} points) indicates mild symptoms. Take care of yourself and practice self-care.";
-                    type = "AssessmentResultMild";
-                }
-                else // Minimal
-                {
-                    title = "✅ Assessment Result - Normal";
-                    body = $"Your assessment score ({totalScore} points) is within the normal range. Keep taking care of your mental health.";
-                    type = "AssessmentResultNormal";
-                }
+                    "Severe" => "🚨",
+                    "Moderate" => "⚠️",
+                    "Mild" => "💛",
+                    _ => "✅"
+                };
+
+                string titleEn = $"{emoji} Assessment Result - {scoreLevel.LevelName}";
+                string titleAr = $"{emoji} نتيجة الاختبار - {scoreLevel.LevelNameAr ?? scoreLevel.LevelName}";
+
+                string title = LanguageHelper.GetLocalized(titleAr, titleEn, lang);
+                string message = LanguageHelper.GetLocalized(scoreLevel.AdviceAr, scoreLevel.Advice, lang);
 
                 await _notificationService.SendRealtimeNotificationAsync(
                     userId,
                     title,
-                    body,
-                    type,
-                    null
+                    message,
+                    "AssessmentResult",
+                    scoreLevel.LevelId
                 );
 
                 _logger.LogInformation(
-                    "✅ Assessment result notification sent to user {UserId}",
+                    "📤 Assessment result notification sent to user {UserId}",
                     userId);
             }
             catch (Exception ex)
@@ -316,7 +318,6 @@ namespace MomEase.infra.Services
                 _logger.LogError(ex,
                     "❌ Failed to send assessment result notification to user {UserId}",
                     userId);
-                // لا نرمي Exception - النتيجة اتحفظت بنجاح
             }
         }
     }

@@ -20,6 +20,7 @@ namespace MomEase.core.DTOS.MotherProfileDto
         public int NumberOfChildren { get; set; }
         public string? MentalHealthStatus { get; set; }
         public string? HealthStatus { get; set; }
+        public string? ProfilePictureUrl { get; set; }
         public DateTime CreatedAt { get; set; }
     }
 }

@@ -1,10 +1,8 @@
 ﻿using Microsoft.Extensions.Logging;
 using MomEase.core.Entities;
 using MomEase.core.Interfaces;
+using MomEase.infra.Helpers;
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 
 namespace MomEase.infra.Services
@@ -52,7 +50,7 @@ namespace MomEase.infra.Services
                         existingFollowUp.FollowUpId, userId);
                 }
 
-                // حدد المدد حسب شدة الاكتئاب
+                // ⬅️ حدد المدد حسب شدة الاكتئاب
                 var (assessmentInterval, tipInterval) = GetIntervals(severityLevel);
 
                 var followUp = new MentalHealthFollowUp
@@ -60,8 +58,8 @@ namespace MomEase.infra.Services
                     UserId = userId,
                     LastAssessmentResultId = assessmentResultId,
                     SeverityLevel = severityLevel,
-                    NextAssessmentDate = DateTime.Now.Add(assessmentInterval),
-                    NextTipDate = DateTime.Now.Add(tipInterval),
+                    NextAssessmentDate = DateTime.Now.Add(assessmentInterval), // ⬅️ حسب الـ Severity
+                    NextTipDate = DateTime.Now.Add(tipInterval), // ⬅️ حسب الـ Severity
                     AssessmentReminderSent = false,
                     IsCompleted = false,
                     CreatedAt = DateTime.Now
@@ -70,8 +68,8 @@ namespace MomEase.infra.Services
                 await _followUpRepo.CreateAsync(followUp);
 
                 _logger.LogInformation(
-                    "✅ Follow-up plan created. Next assessment: {NextAssessment}, Next tip: {NextTip}",
-                    followUp.NextAssessmentDate, followUp.NextTipDate);
+                    "✅ Follow-up plan created for severity '{SeverityLevel}'. Next assessment: {NextAssessment}, Next tip: {NextTip}",
+                    severityLevel, followUp.NextAssessmentDate, followUp.NextTipDate);
             }
             catch (Exception ex)
             {
@@ -94,16 +92,14 @@ namespace MomEase.infra.Services
                             "📬 Sending assessment reminder to user {UserId}",
                             followUp.UserId);
 
-                        // ⬅️ جيب الـ User عشان تعرف لغته
                         var user = await _userRepo.GetByIdAsync(followUp.UserId);
                         var userLang = user?.PreferredLanguage ?? "en";
 
-                        // اختار الـ Title حسب اللغة
-                        var title = userLang.StartsWith("ar")
-                            ? "🧠 وقت تقييم صحتك النفسية"
-                            : "🧠 Mental Health Check-in Time";
+                        var title = LanguageHelper.GetLocalized(
+                            "🧠 وقت تقييم صحتك النفسية",
+                            "🧠 Mental Health Check-in Time",
+                            userLang);
 
-                        // اختار الـ Message حسب اللغة
                         var message = GetAssessmentReminderMessage(followUp.SeverityLevel, userLang);
 
                         await _notificationService.SendRealtimeNotificationAsync(
@@ -141,52 +137,80 @@ namespace MomEase.infra.Services
             {
                 var dueTips = await _followUpRepo.GetDueTipsAsync();
 
+                _logger.LogInformation(
+                    "📊 Found {Count} follow-ups with due tips",
+                    dueTips.Count());
+
                 foreach (var followUp in dueTips)
                 {
                     try
                     {
                         _logger.LogInformation(
-                            "💡 Sending mental health tip to user {UserId}",
-                            followUp.UserId);
+                            "💡 Processing tip for user {UserId}, Severity: {Severity}, NextTipDate: {NextTipDate}",
+                            followUp.UserId, followUp.SeverityLevel, followUp.NextTipDate);
 
+                        // ⬅️ جيب tip عشوائي حسب الـ severity
                         var tip = await _tipRepo.GetRandomTipAsync(
                             followUp.UserId,
                             followUp.SeverityLevel);
 
                         if (tip != null)
                         {
-                            // ⬅️ جيب الـ User عشان تعرف لغته
+                            // ⬅️ جيب لغة اليوزر
                             var user = await _userRepo.GetByIdAsync(followUp.UserId);
                             var userLang = user?.PreferredLanguage ?? "en";
 
-                            // اختار الـ Tip Text حسب اللغة
-                            var tipText = userLang.StartsWith("ar") && !string.IsNullOrEmpty(tip.TipTextAr)
-                                ? tip.TipTextAr
-                                : tip.TipTextEnglish;
+                            _logger.LogInformation(
+                                "🌐 User {UserId} language: {Language}",
+                                followUp.UserId, userLang);
 
-                            // اختار الـ Title حسب اللغة
-                            var title = userLang.StartsWith("ar")
-                                ? "💚 نصيحة للصحة النفسية"
-                                : "💚 Mental Health Tip";
+                            // ⬅️ اختار الـ Title والـ Body حسب اللغة
+                            string title = LanguageHelper.GetLocalized(
+                                "💚 نصيحة للصحة النفسية",
+                                "💚 Mental Health Tip",
+                                userLang);
 
+                            string body = LanguageHelper.GetLocalized(
+                                tip.TipTextAr,
+                                tip.TipTextEnglish,
+                                userLang);
+
+                            _logger.LogInformation(
+                                "📤 Sending tip {TipId} to user {UserId}: {Title}",
+                                tip.TipId, followUp.UserId, title);
+
+                            // ⬅️ بعت Notification
                             await _notificationService.SendRealtimeNotificationAsync(
                                 followUp.UserId,
                                 title,
-                                tipText,
+                                body,
                                 "MentalHealthTip",
                                 tip.TipId
                             );
 
+                            // ⬅️ سجّل إن الـ tip اتبعت
                             await _tipRepo.MarkTipAsSentAsync(followUp.UserId, tip.TipId);
 
                             _logger.LogInformation(
                                 "✅ Tip {TipId} sent to user {UserId} in {Language}",
                                 tip.TipId, followUp.UserId, userLang);
                         }
+                        else
+                        {
+                            _logger.LogWarning(
+                                "⚠️ No available tip found for user {UserId} with severity {Severity}",
+                                followUp.UserId, followUp.SeverityLevel);
+                        }
 
+                        // ⬅️⬅️⬅️ المهم: حدد موعد الـ Tip الجاي حسب الـ Severity ⬅️⬅️⬅️
                         var (_, tipInterval) = GetIntervals(followUp.SeverityLevel);
                         followUp.NextTipDate = DateTime.Now.Add(tipInterval);
+
                         await _followUpRepo.UpdateAsync(followUp);
+
+                        _logger.LogInformation(
+                            "📅 Next tip for user {UserId} scheduled for: {NextTipDate} (Interval: {Interval})",
+                            followUp.UserId, followUp.NextTipDate, tipInterval);
                     }
                     catch (Exception ex)
                     {
@@ -204,14 +228,29 @@ namespace MomEase.infra.Services
 
         // ── Private Helpers ────────────────────────────────
 
+        /// <summary>
+        /// يحدد الفترات الزمنية بين التقييمات والنصائح حسب شدة الحالة
+        /// </summary>
         private (TimeSpan assessmentInterval, TimeSpan tipInterval) GetIntervals(string severityLevel)
         {
             return severityLevel switch
             {
-                "Severe" => (TimeSpan.FromDays(3), TimeSpan.FromDays(1)),      // Every 3 days assessment, daily tip
-                "Moderate" => (TimeSpan.FromDays(7), TimeSpan.FromDays(3)),    // Weekly assessment, tip every 3 days
-                "Mild" => (TimeSpan.FromDays(14), TimeSpan.FromDays(7)),       // Bi-weekly assessment, weekly tip
-                _ => (TimeSpan.FromDays(30), TimeSpan.FromDays(14))            // Minimal: Monthly assessment, tip every 2 weeks
+                "Severe" => (
+                    TimeSpan.FromDays(3),   // Assessment every 3 days
+                    TimeSpan.FromDays(1)    // Tip every 1 day 📅
+                ),
+                "Moderate" => (
+                    TimeSpan.FromDays(7),   // Assessment every 7 days
+                    TimeSpan.FromDays(3)    // Tip every 3 days 📅
+                ),
+                "Mild" => (
+                    TimeSpan.FromDays(14),  // Assessment every 14 days
+                    TimeSpan.FromDays(7)    // Tip every 7 days 📅
+                ),
+                _ => ( // Minimal/Normal
+                    TimeSpan.FromDays(30),  // Assessment every 30 days
+                    TimeSpan.FromDays(14)   // Tip every 14 days 📅
+                )
             };
         }
 
