@@ -4,19 +4,22 @@ using MomEase.core.DTOS.FeedingRecordDto;
 using MomEase.core.Entities;
 using MomEase.core.Enums;
 using MomEase.core.Interfaces;
-
+using MomEase.infra.Helpers;
 namespace MomEase.infra.Services
 {
     public class FeedingRecordService : IFeedingRecordService
     {
         private readonly IFeedingRecordRepository _feedingRecordRepository;
         private readonly IFeedingReferenceRepository _feedingReferenceRepository;
+        private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly IChildRepository _childRepository;
         private readonly IHttpContextAccessor _httpContextAccessor;
 
         public FeedingRecordService(
             IFeedingRecordRepository feedingRecordRepository,
             IFeedingReferenceRepository feedingReferenceRepository,
+            IHttpContextAccessor httpContextAccessor,
+            IChildRepository childRepository)
             IChildRepository childRepository,
     IHttpContextAccessor httpContextAccessor)
         {
@@ -279,6 +282,7 @@ namespace MomEase.infra.Services
         {
             try
             {
+                var lang = LanguageHelper.GetLang(_httpContextAccessor);
                 var child = await _childRepository.GetChildByIdAsync(childId);
                 if (child == null)
                     throw new KeyNotFoundException($"Child with ID {childId} not found");
@@ -292,15 +296,17 @@ namespace MomEase.infra.Services
                         TotalRecords = 0,
                         AverageTimesPerDay = 0,
                         Last7DaysAverage = 0,
-                        CurrentFeedingStatus = "No Data",
-                        MostCommonFeedingType = "N/A",
+                        CurrentFeedingStatus = lang == "ar" ? "لا توجد بيانات" : "No Data",
+                        MostCommonFeedingType = lang == "ar" ? "غير محدد" : "N/A",
                         ComparisonWithReference = new ComparisonWithReferenceDto
                         {
-                            Status = "No Data",
+                            Status = lang == "ar" ? "لا توجد بيانات" : "No Data",
                             RecommendedMin = 0,
                             RecommendedMax = 0,
                             ActualAverage = 0,
-                            Message = "No feeding records available yet"
+                            Message = lang == "ar"
+                                ? "لا توجد سجلات تغذية متاحة حتى الآن"
+                                : "No feeding records available yet"
                         }
                     };
                 }
@@ -319,7 +325,7 @@ namespace MomEase.infra.Services
                 var currentFeedingStatus = allRecords
                     .GroupBy(r => r.FeedingType)
                     .OrderByDescending(g => g.Count())
-                    .FirstOrDefault()?.Key.ToString() ?? "N/A";
+                    .FirstOrDefault()?.Key.ToString() ?? (lang == "ar" ? "غير محدد" : "N/A");
 
                 var ageInMonths = CalculateAgeInMonths(child.BirthDate);
 
@@ -334,7 +340,7 @@ namespace MomEase.infra.Services
                     RecommendedMin = reference?.MinTimesPerDay ?? 0,
                     RecommendedMax = reference?.MaxTimesPerDay ?? 0,
                     ActualAverage = last7DaysAverage,
-                    Message = GenerateComparisonMessage(last7DaysAverage, reference?.MinTimesPerDay, reference?.MaxTimesPerDay)
+                    Message = GenerateComparisonMessage(last7DaysAverage, reference?.MinTimesPerDay, reference?.MaxTimesPerDay, lang)
                 };
 
                 return new FeedingStatisticsDto
@@ -370,6 +376,12 @@ namespace MomEase.infra.Services
 
         public async Task<WeeklyFeedingDto> GetWeeklyRecordsAsync(int childId)
         {
+            try
+            {
+                var lang = LanguageHelper.GetLang(_httpContextAccessor);
+                var child = await _childRepository.GetChildByIdAsync(childId);
+                if (child == null)
+                    throw new KeyNotFoundException($"Child with ID {childId} not found");
             var child = await _childRepository.GetChildByIdAsync(childId);
             if (child == null)
                 throw new KeyNotFoundException($"Child with ID {childId} not found");
@@ -389,6 +401,22 @@ namespace MomEase.infra.Services
 
                 dailyRecords.Add(new DailyFeedingDto
                 {
+                    var date = weekStart.AddDays(i);
+                    var dayRecords = records.Where(r => r.FeedingDate.Date == date).ToList();
+
+                    if (dayRecords.Any())
+                    {
+                        // ✅ إذا كان فيه أكثر من سجل في نفس اليوم، خد أول واحد
+                        var record = dayRecords.First();
+                        dailyRecords.Add(new DailyFeedingDto
+                        {
+                            Date = date,
+                            TimesPerDay = record.FeedingTimesPerDay,
+                            FeedingType = lang == "ar" ? GetArabicFeedingType(record.FeedingTypeForBaby) : record.FeedingTypeForBaby.ToString(),
+                            Status = GetFeedingStatus(record.FeedingType, lang)
+                        });
+                    }
+                    else
                     Date = date,
                     Records = dayRecords.Select(r => new DailyFeedingEntryDto
                     {
@@ -412,6 +440,12 @@ namespace MomEase.infra.Services
 
         public async Task<MonthlyFeedingDto> GetMonthlyRecordsAsync(int childId)
         {
+            try
+            {
+                var lang = LanguageHelper.GetLang(_httpContextAccessor);
+                var child = await _childRepository.GetChildByIdAsync(childId);
+                if (child == null)
+                    throw new KeyNotFoundException($"Child with ID {childId} not found");
             var child = await _childRepository.GetChildByIdAsync(childId);
             if (child == null)
                 throw new KeyNotFoundException($"Child with ID {childId} not found");
@@ -420,10 +454,31 @@ namespace MomEase.infra.Services
             var startOfMonth = new DateTime(now.Year, now.Month, 1);
             var daysInMonth = DateTime.DaysInMonth(now.Year, now.Month);
 
+                if (!records.Any())
+                {
+                    var now = DateTime.Now;
+                    return new MonthlyFeedingDto
+                    {
+                        Month = now.Month,
+                        Year = now.Year,
+                        MonthName = lang == "ar"
+                            ? GetArabicMonthName(now.Month)
+                            : now.ToString("MMMM yyyy"),
+                        TotalRecords = 0,
+                        AverageTimesPerDay = 0,
+                        FeedingTypeDistribution = new Dictionary<string, int>(),
+                        DominantStatus = lang == "ar" ? "لا توجد بيانات" : "No Data"
+                    };
+                }
             var records = await _feedingRecordRepository.GetCurrentMonthAsync(childId);
 
             var dailyRecords = new List<DailyFeedingDto>();
 
+                var dominantStatus = feedingTypeDistribution
+                    .OrderByDescending(kvp => kvp.Value)
+                    .FirstOrDefault().Key ?? (lang == "ar" ? "غير معروف" : "Unknown");
+
+                var currentMonth = DateTime.Now;
             for (int i = 0; i < daysInMonth; i++)
             {
                 var date = startOfMonth.AddDays(i);
@@ -431,6 +486,20 @@ namespace MomEase.infra.Services
 
                 dailyRecords.Add(new DailyFeedingDto
                 {
+                    Month = currentMonth.Month,
+                    Year = currentMonth.Year,
+                    MonthName = lang == "ar"
+                        ? GetArabicMonthName(currentMonth.Month)
+                        : currentMonth.ToString("MMMM yyyy"),
+                    TotalRecords = records.Count,
+                    AverageTimesPerDay = Math.Round(records.Average(r => r.FeedingTimesPerDay), 1),
+                    FeedingTypeDistribution = feedingTypeDistribution,
+                    DominantStatus = GetFeedingStatus(Enum.Parse<FeedingType>(dominantStatus), lang)
+                };
+            }
+            catch (Exception ex) when (ex is KeyNotFoundException)
+            {
+                throw;
                     Date = date,
                     Records = dayRecords.Select(r => new DailyFeedingEntryDto
                     {
@@ -508,24 +577,47 @@ namespace MomEase.infra.Services
         /// <summary>
         /// Generate user-friendly comparison message
         /// </summary>
-        private string GenerateComparisonMessage(double actual, int? min, int? max)
+        private string GenerateComparisonMessage(double actual, int? min, int? max, string lang = "en")
         {
             if (!min.HasValue || !max.HasValue)
-                return "No reference data available for this age range";
+                return lang == "ar"
+                    ? "لا توجد بيانات مرجعية متاحة لهذه الفئة العمرية"
+                    : "No reference data available for this age range";
 
-            if (actual < min * 0.5)
-                return $"⚠️ Feeding frequency is significantly below recommended ({min}-{max} times/day). Please consult with a pediatrician.";
+            if (lang == "ar")
+            {
+                // العربية
+                if (actual < min * 0.5)
+                    return $"⚠️ تكرار التغذية أقل بكثير من الموصى به ({min}-{max} مرات/يوم). يرجى استشارة طبيب الأطفال.";
 
-            if (actual < min)
-                return $"⚠️ Feeding frequency is slightly below recommended ({min}-{max} times/day).";
+                if (actual < min)
+                    return $"⚠️ تكرار التغذية أقل قليلاً من الموصى به ({min}-{max} مرات/يوم).";
 
-            if (actual >= min && actual <= max)
-                return $"✅ Your baby is feeding within the recommended range ({min}-{max} times/day).";
+                if (actual >= min && actual <= max)
+                    return $"✅ الطفل يتغذى ضمن النطاق الموصى به ({min}-{max} مرات/يوم).";
 
-            if (actual <= max * 1.5)
-                return $"⚠️ Feeding frequency is slightly above recommended ({min}-{max} times/day).";
+                if (actual <= max * 1.5)
+                    return $"⚠️ تكرار التغذية أعلى قليلاً من الموصى به ({min}-{max} مرات/يوم).";
 
-            return $"⚠️ Feeding frequency is significantly above recommended ({min}-{max} times/day). Please consult with a pediatrician.";
+                return $"⚠️ تكرار التغذية أعلى بكثير من الموصى به ({min}-{max} مرات/يوم). يرجى استشارة طبيب الأطفال.";
+            }
+            else
+            {
+                // الإنجليزية
+                if (actual < min * 0.5)
+                    return $"⚠️ Feeding frequency is significantly below recommended ({min}-{max} times/day). Please consult with a pediatrician.";
+
+                if (actual < min)
+                    return $"⚠️ Feeding frequency is slightly below recommended ({min}-{max} times/day).";
+
+                if (actual >= min && actual <= max)
+                    return $"✅ Your baby is feeding within the recommended range ({min}-{max} times/day).";
+
+                if (actual <= max * 1.5)
+                    return $"⚠️ Feeding frequency is slightly above recommended ({min}-{max} times/day).";
+
+                return $"⚠️ Feeding frequency is significantly above recommended ({min}-{max} times/day). Please consult with a pediatrician.";
+            }
         }
 
         /// <summary>
@@ -552,6 +644,62 @@ namespace MomEase.infra.Services
                 } : null
             };
         }
+        private string GetFeedingStatus(FeedingType type, string lang = "en")
+        {
+            if (lang == "ar")
+            {
+                return type switch
+                {
+                    FeedingType.SevereUnder => "أقل بكثير من المطلوب",
+                    FeedingType.Under => "أقل من المطلوب",
+                    FeedingType.Normal => "عادي",
+                    FeedingType.Over => "أكثر من المطلوب",
+                    FeedingType.Obese => "أكثر بكثير من المطلوب",
+                    _ => "غير معروف"
+                };
+            }
+            else
+            {
+                return type switch
+                {
+                    FeedingType.SevereUnder => "Severely Under",
+                    FeedingType.Under => "Under",
+                    FeedingType.Normal => "Normal",
+                    FeedingType.Over => "Over",
+                    FeedingType.Obese => "Severely Over",
+                    _ => "Unknown"
+                };
+            }
+        }
+        private string GetArabicFeedingType(FeedingTypeForBaby type)
+        {
+            return type switch
+            {
+                FeedingTypeForBaby.Breastfeeding => "رضاعة طبيعية",
+                FeedingTypeForBaby.Formula => "رضاعة صناعية",
+                FeedingTypeForBaby.SolidFood => "رضاعة مختلطة",
+                _ => type.ToString()
+            };
+        }
+        private string GetArabicMonthName(int month)
+        {
+            var arabicMonths = new[]
+            {
+                "يناير",    // January
+                "فبراير",   // February
+                "مارس",     // March
+                "أبريل",    // April
+                "مايو",     // May
+                "يونيو",    // June
+                "يوليو",    // July
+                "أغسطس",    // August
+                "سبتمبر",   // September
+                "أكتوبر",   // October
+                "نوفمبر",   // November
+                "ديسمبر"    // December
+            };
+
+            return month >= 1 && month <= 12 ? arabicMonths[month - 1] : "Unknown";
         private string GetLang() =>
     _httpContextAccessor.HttpContext?
         .Request.Headers["Accept-Language"]
