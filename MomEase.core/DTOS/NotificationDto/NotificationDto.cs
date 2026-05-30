@@ -14,6 +14,7 @@ namespace MomEase.core.DTOS.NotificationDto
         public string Type { get; set; }
         public int? RelatedEntityId { get; set; }
         public string? ActionUrl { get; set; }
+        public object? Data { get; set; }
         public bool IsRead { get; set; }
         public DateTime CreatedAt { get; set; }
         public DateTime? ReadAt { get; set; }

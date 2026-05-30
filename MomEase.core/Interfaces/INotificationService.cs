@@ -9,7 +9,7 @@ namespace MomEase.core.Interfaces
 {
     public interface INotificationService
     {
-        Task SendRealtimeNotificationAsync(int userId, string title, string body, string type, int? relatedEntityId = null);
+        Task SendRealtimeNotificationAsync(int userId, string title, string body, string type, int? relatedEntityId = null, string? actionUrl = null);
         Task<IEnumerable<NotificationDto>> GetUserNotificationsAsync(int userId);
         Task<int> GetUnreadCountAsync(int userId);
         Task<bool> MarkAsReadAsync(int userId, int notificationId);

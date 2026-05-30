@@ -18,6 +18,8 @@ namespace MomEase.core.Interfaces
         // GET /api/children/{id} - الحصول على طفل معين
         Task<Child> GetChildByIdAsync(int childId);
 
+        Task<List<Child>> GetByUserIdAsync(int userId);
+
         // PUT /api/children/{id} - تحديث بيانات طفل
         Task<Child> UpdateChildAsync(Child child);
 
