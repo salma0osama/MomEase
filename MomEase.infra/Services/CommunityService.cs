@@ -1289,7 +1289,9 @@ namespace MomEase.infra.Services
                 UserName = post.User != null
                     ? $"{post.User.FirstName} {post.User.LastName}"
                     : "",
-                UserPhoto = post.User?.MotherProfile?.ProfilePictureUrl,
+                UserPhoto = post.User?.MotherProfile?.ProfilePictureUrl != null
+    ? GetFullUrl(post.User.MotherProfile.ProfilePictureUrl)
+    : null,
                 Text = post.Text,
                 Media = post.PostMedia?.OrderBy(m => m.Order)
 
