@@ -61,11 +61,11 @@ namespace MomEase
                 builder.Services.AddAuthentication()
                 .AddFacebook(options =>
                  {
-        options.AppId = builder.Configuration["Authentication:Facebook:AppId"];
-        options.AppSecret = builder.Configuration["Authentication:Facebook:AppSecret"];
-        options.Fields.Add("email");
-        options.Fields.Add("name");
-                  });
+                     options.AppId = builder.Configuration["Authentication:Facebook:AppId"];
+                     options.AppSecret = builder.Configuration["Authentication:Facebook:AppSecret"];
+                     options.Fields.Add("email");
+                     options.Fields.Add("name");
+                 });
 
                 builder.Services.AddAuthorization();
 
@@ -167,6 +167,12 @@ namespace MomEase
                 builder.Services.AddScoped<ICommunityRepository, CommunityRepository>();
                 builder.Services.AddScoped<ICommunityService, CommunityService>();
 
+                // DailyTrackingReminder
+                builder.Services.AddScoped<IDailyTrackingReminderRepository, DailyTrackingReminderRepository>();
+                builder.Services.AddScoped<IDailyTrackingReminderService, DailyTrackingReminderService>();
+
+                // Add Background Service
+                builder.Services.AddHostedService<DailyTrackingReminderBackgroundService>();
 
                 builder.Services.AddControllers().AddJsonOptions(options =>
                 {
@@ -290,7 +296,7 @@ namespace MomEase
             }
             catch (Exception ex)
             {
-               
+
                 Console.WriteLine(ex.ToString());
                 throw;
             }

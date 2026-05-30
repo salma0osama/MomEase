@@ -36,7 +36,8 @@ namespace MomEase.infra.Services
             string title,
             string body,
             string type,
-            int? relatedEntityId = null)
+            int? relatedEntityId = null,
+            string? actionUrl = null)
         {
             try
             {
@@ -52,6 +53,7 @@ namespace MomEase.infra.Services
                     Body = body,
                     Type = type,
                     RelatedEntityId = relatedEntityId,
+                    ActionUrl = actionUrl,
                     IsRead = false,
                     CreatedAt = DateTime.Now
                 };
@@ -74,6 +76,7 @@ namespace MomEase.infra.Services
                             body = saved.Body,
                             type = saved.Type,
                             relatedEntityId = saved.RelatedEntityId,
+                            actionUrl = saved.ActionUrl,
                             createdAt = saved.CreatedAt
                         });
 

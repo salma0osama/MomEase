@@ -76,6 +76,8 @@ namespace MomEase.infra.Data
         public DbSet<CommentReply> CommentReplies { get; set; }
         public DbSet<CommentReaction> CommentReactions { get; set; }
 
+        public DbSet<DailyTrackingReminder> DailyTrackingReminders { get; set; }
+
         // ============================
         // Fluent API
         // ============================
@@ -309,7 +311,17 @@ namespace MomEase.infra.Data
                     .HasForeignKey(e => e.UserId)
                     .OnDelete(DeleteBehavior.NoAction);
             });
+            modelBuilder.Entity<DailyTrackingReminder>()
+                .HasOne(d => d.User)
+                .WithMany()
+                .HasForeignKey(d => d.UserId)
+                .OnDelete(DeleteBehavior.Restrict);
 
+            modelBuilder.Entity<DailyTrackingReminder>()
+                .HasOne(d => d.Child)
+                .WithMany()
+                .HasForeignKey(d => d.ChildId)
+                .OnDelete(DeleteBehavior.Restrict);
             // ---------- ChatBot ----------
             modelBuilder.Entity<ChatBot>(entity =>
             {

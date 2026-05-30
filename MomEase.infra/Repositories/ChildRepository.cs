@@ -42,7 +42,12 @@ namespace MomEase.infra.Repositories
             return await _context.Children
                 .FirstOrDefaultAsync(c => c.ChildId == childId);
         }
-
+        public async Task<List<Child>> GetByUserIdAsync(int userId)
+        {
+            return await _context.Children
+                .Where(c => c.UserId == userId)
+                .ToListAsync();
+        }
         // PUT /api/children/{id} - تحديث بيانات طفل
         public async Task<Child> UpdateChildAsync(Child child)
         {

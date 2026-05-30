@@ -107,7 +107,8 @@ namespace MomEase.infra.Services
                             title,
                             message,
                             "MentalHealthAssessmentReminder",
-                            followUp.LastAssessmentResultId
+                            followUp.LastAssessmentResultId,
+                            actionUrl: $"/assessments/follow-up/{followUp.FollowUpId}"
                         );
 
                         followUp.AssessmentReminderSent = true;
@@ -185,7 +186,8 @@ namespace MomEase.infra.Services
                                 title,
                                 body,
                                 "MentalHealthTip",
-                                tip.TipId
+                                tip.TipId,
+                                actionUrl: $"/mental-health/tips/{tip.TipId}"
                             );
 
                             // ⬅️ سجّل إن الـ tip اتبعت

@@ -3,29 +3,32 @@ using MomEase.core.DTOS.CommunityDTO;
 using MomEase.core.Entities;
 using MomEase.core.Enums;
 using MomEase.core.Interfaces;
-using Microsoft.AspNetCore.Http;    
+using Microsoft.AspNetCore.Http;
 
 namespace MomEase.infra.Services
 {
     public class CommunityService : ICommunityService
     {
         private readonly ICommunityRepository _communityRepository;
+        private readonly IUserRepository _userRepository;
         private readonly IFileStorageService _fileStorageService;
-        private readonly INotificationService _notificationService; 
+        private readonly INotificationService _notificationService;
         private readonly ILogger<CommunityService> _logger;
         private readonly IHttpContextAccessor _httpContextAccessor;
 
 
         public CommunityService(
             ICommunityRepository communityRepository,
+            IUserRepository userRepository,
             IFileStorageService fileStorageService,
-            INotificationService notificationService, 
+            INotificationService notificationService,
             ILogger<CommunityService> logger,
             IHttpContextAccessor httpContextAccessor)
         {
             _communityRepository = communityRepository;
+            _userRepository = userRepository;
             _fileStorageService = fileStorageService;
-            _notificationService = notificationService; 
+            _notificationService = notificationService;
             _logger = logger;
             _httpContextAccessor = httpContextAccessor;
         }
@@ -350,21 +353,46 @@ namespace MomEase.infra.Services
 
                     try
                     {
-                        var commentPreview = dto.Text.Length > 50
-                            ? dto.Text.Substring(0, 50) + "..."
+                        // ✅ اجلب بيانات المعلق
+                        var commenter = full?.User;
+                        var commenterName = commenter != null
+                            ? $"{commenter.FirstName} {commenter.LastName}".Trim()
+                            : "Unknown User";
+
+                        // ✅ اجلب لغة صاحب البوست
+                        var postOwner = post.User;
+                        var lang = postOwner?.PreferredLanguage ?? "en";
+
+                        // ✅ بناء الرسالة مع الاسم واللغة
+                        string title, message;
+                        var commentPreview = dto.Text.Length > 60
+                            ? dto.Text.Substring(0, 60) + "..."
                             : dto.Text;
 
+                        if (lang == "ar")
+                        {
+                            title = "💬 تعليق جديد على بوستك";
+                            message = $"{commenterName} علق: \"{commentPreview}\"";
+                        }
+                        else
+                        {
+                            title = "💬 New comment on your post";
+                            message = $"{commenterName} commented: \"{commentPreview}\"";
+                        }
+
+                        // ✅ إرسال Notification
                         await _notificationService.SendRealtimeNotificationAsync(
                             post.UserId,
-                            "💬 New Comment",
-                            $"Someone commented on your post: \"{commentPreview}\"",
+                            title,
+                            message,
                             "CommunityComment",
-                            postId
+                            postId,
+                            actionUrl: $"/posts/{postId}"
                         );
 
                         _logger.LogInformation(
-                            "Comment notification sent to user {UserId}",
-                            post.UserId);
+                            "Comment notification sent to user {UserId} about comment from {CommenterName}",
+                            post.UserId, commenterName);
                     }
                     catch (Exception ex)
                     {
@@ -521,6 +549,17 @@ namespace MomEase.infra.Services
 
                     try
                     {
+                        // ✅ اجلب بيانات الشخص اللي عمل Reaction
+                        var reactor = await _userRepository.GetByIdAsync(userId);
+                        var reactorName = reactor != null
+                            ? $"{reactor.FirstName} {reactor.LastName}".Trim()
+                            : "Unknown User";
+
+                        // ✅ اجلب لغة صاحب البوست
+                        var postOwner = post.User;
+                        var lang = postOwner?.PreferredLanguage ?? "en";
+
+                        // ✅ Map Reaction Type to Emoji
                         string reactionEmoji = reactionType switch
                         {
                             ReactionType.LIKE => "👍",
@@ -530,17 +569,33 @@ namespace MomEase.infra.Services
                             _ => "👏"
                         };
 
+                        // ✅ بناء الرسالة مع الاسم واللغة
+                        string title, message;
+
+                        if (lang == "ar")
+                        {
+                            title = $"👏 تفاعل جديد على بوستك";
+                            message = $"{reactorName} عمل {GetArabicReactionName(reactionType)} على بوستك {reactionEmoji}";
+                        }
+                        else
+                        {
+                            title = "👏 New reaction on your post";
+                            message = $"{reactorName} reacted {reactionEmoji} to your post";
+                        }
+
+                        // ✅ إرسال Notification
                         await _notificationService.SendRealtimeNotificationAsync(
                             post.UserId,
-                            "👏 New Reaction",
-                            $"Someone reacted {reactionEmoji} to your post!",
+                            title,
+                            message,
                             "CommunityReaction",
-                            postId
+                            postId,
+                            actionUrl: $"/posts/{postId}"
                         );
 
                         _logger.LogInformation(
-                            "Reaction notification sent to user {UserId}",
-                            post.UserId);
+                            "Reaction notification sent to user {UserId} about reaction from {ReactorName}",
+                            post.UserId, reactorName);
                     }
                     catch (Exception ex)
                     {
@@ -676,6 +731,55 @@ namespace MomEase.infra.Services
                 };
 
                 var result = await _communityRepository.SavePostAsync(savedPost);
+
+                if (post.UserId != userId)
+                {
+                    try
+                    {
+                        // ✅ اجلب بيانات الشخص اللي عمل Save
+                        var saver = await _userRepository.GetByIdAsync(userId);
+                        var saverName = saver != null
+                            ? $"{saver.FirstName} {saver.LastName}".Trim()
+                            : "Unknown User";
+
+                        // ✅ اجلب لغة صاحب البوست
+                        var postOwner = post.User;
+                        var lang = postOwner?.PreferredLanguage ?? "en";
+
+                        // ✅ بناء الرسالة مع الاسم واللغة
+                        string title, message;
+
+                        if (lang == "ar")
+                        {
+                            title = "📌 حفظ جديد لبوستك";
+                            message = $"{saverName} حفظ بوستك";
+                        }
+                        else
+                        {
+                            title = "📌 Your post was saved";
+                            message = $"{saverName} saved your post";
+                        }
+
+                        // ✅ إرسال Notification
+                        await _notificationService.SendRealtimeNotificationAsync(
+                            post.UserId,
+                            title,
+                            message,
+                            "CommunityPostSaved",
+                            postId,
+                            actionUrl: $"/posts/{postId}"
+                        );
+
+                        _logger.LogInformation(
+                            "Save notification sent to user {UserId} about save from {SaverName}",
+                            post.UserId, saverName);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Failed to send save notification");
+                        // لا نرمي Exception - Post تم حفظه بنجاح
+                    }
+                }
 
                 _logger.LogInformation("Post {PostId} saved by user {UserId}", postId, userId);
 
@@ -867,7 +971,7 @@ namespace MomEase.infra.Services
                     throw new ArgumentException(
                         "Invalid action. Must be: Dismiss, DeletePost, Warn");
 
-                var post = await _communityRepository.GetPostByIdNoTrackingAsync(report.PostId ?? 0 );
+                var post = await _communityRepository.GetPostByIdNoTrackingAsync(report.PostId ?? 0);
                 if (dto.Action == "DeletePost" && post == null)
                     throw new KeyNotFoundException("Post not found or already deleted");
 
@@ -894,7 +998,8 @@ namespace MomEase.infra.Services
                                     "🚫 Post Removed",
                                     $"Your post has been removed by admin due to community guideline violations. Reason: {dto.AdminNote ?? "Inappropriate content"}",
                                     "CommunityPostDeleted",
-                                    post.PostId
+                                    post.PostId,
+                                    actionUrl: $"/my-posts"
                                 );
 
                                 _logger.LogInformation(
@@ -930,7 +1035,8 @@ namespace MomEase.infra.Services
                                     "⚠️ Warning from Admin",
                                     dto.AdminNote ?? "Your post violates community guidelines. Please review our policies.",
                                     "CommunityWarning",
-                                    post.PostId
+                                    post.PostId,
+                                    actionUrl: $"/posts/{post.PostId}"
                                 );
 
                                 _logger.LogInformation(
@@ -959,7 +1065,7 @@ namespace MomEase.infra.Services
                 return new PostReportDto
                 {
                     ReportId = reportId,
-                    PostId = report.PostId??0,
+                    PostId = report.PostId ?? 0,
                     ReporterId = report.ReporterId,
                     ReporterName = freshReport?.Reporter != null
                         ? $"{freshReport.Reporter.FirstName} {freshReport.Reporter.LastName}"
@@ -1005,6 +1111,61 @@ namespace MomEase.infra.Services
 
                 var added = await _communityRepository.AddReplyAsync(reply);
                 var full = await _communityRepository.GetReplyByIdAsync(added.ReplyId);
+
+                if (comment.UserId != userId)
+                {
+                    try
+                    {
+                        // ✅ اجلب بيانات الشخص اللي عمل Reply
+                        var replier = full?.User;
+                        var replierName = replier != null
+                            ? $"{replier.FirstName} {replier.LastName}".Trim()
+                            : "Unknown User";
+
+                        // ✅ اجلب لغة صاحب الكومنت
+                        var commentOwner = comment.User;
+                        var lang = commentOwner?.PreferredLanguage ?? "en";
+
+                        // ✅ بناء الرسالة مع الاسم واللغة
+                        string title, message;
+                        var replyPreview = dto.Text.Length > 60
+                            ? dto.Text.Substring(0, 60) + "..."
+                            : dto.Text;
+
+                        if (lang == "ar")
+                        {
+                            title = "📍 رد جديد على تعليقك";
+                            message = $"{replierName} رد: \"{replyPreview}\"";
+                        }
+                        else
+                        {
+                            title = "📍 New reply to your comment";
+                            message = $"{replierName} replied: \"{replyPreview}\"";
+                        }
+
+                        // ✅ إرسال Notification
+                        await _notificationService.SendRealtimeNotificationAsync(
+                            comment.UserId,
+                            title,
+                            message,
+                            "CommunityCommentReply",
+                            commentId,
+                            actionUrl: $"/posts/{comment.PostId}#comment-{commentId}"
+                        );
+
+                        _logger.LogInformation(
+                            "Reply notification sent to user {UserId} about reply from {ReplierName}",
+                            comment.UserId, replierName);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Failed to send reply notification");
+                        // لا نرمي Exception - Reply تم إضافتها بنجاح
+                    }
+                }
+
+                _logger.LogInformation("Reply added {ReplyId} on comment {CommentId}",
+                    added.ReplyId, commentId);
 
                 return MapToReplyDto(full!, userId);
             }
@@ -1087,7 +1248,7 @@ namespace MomEase.infra.Services
         // ===== Comment Reactions =====
 
         public async Task<CommentReactionDto> AddCommentReactionAsync(
-            int commentId, int userId, AddCommentReactionDto dto)
+    int commentId, int userId, AddCommentReactionDto dto)
         {
             try
             {
@@ -1113,6 +1274,72 @@ namespace MomEase.infra.Services
                 };
 
                 var added = await _communityRepository.AddCommentReactionAsync(reaction);
+
+                // 🔔 إرسال Notification لصاحب الكومنت (إلا لو هو نفسه)
+                if (comment.UserId != userId)
+                {
+                    try
+                    {
+                        // ✅ اجلب بيانات الشخص اللي عمل Reaction
+                        var reactor = await _userRepository.GetByIdAsync(userId);
+                        var reactorName = reactor != null
+                            ? $"{reactor.FirstName} {reactor.LastName}".Trim()
+                            : "Unknown User";
+
+                        // ✅ اجلب لغة صاحب الكومنت
+                        var commentOwner = comment.User;
+                        var lang = commentOwner?.PreferredLanguage ?? "en";
+
+                        // ✅ Map Reaction Type to Emoji and Arabic Name
+                        string reactionEmoji = reactionType switch
+                        {
+                            ReactionType.LIKE => "👍",
+                            ReactionType.LOVE => "❤️",
+                            ReactionType.SUPPORT => "🤗",
+                            ReactionType.HELPFUL => "💡",
+                            _ => "👏"
+                        };
+
+                        string arabicReactionName = GetArabicReactionName(reactionType);
+
+                        // ✅ بناء الرسالة مع الاسم واللغة
+                        string title, message;
+
+                        if (lang == "ar")
+                        {
+                            title = "👏 تفاعل جديد على تعليقك";
+                            message = $"{reactorName} عمل {arabicReactionName} {reactionEmoji} على تعليقك";
+                        }
+                        else
+                        {
+                            title = "👏 New reaction on your comment";
+                            message = $"{reactorName} reacted {reactionEmoji} to your comment";
+                        }
+
+                        // ✅ إرسال Notification
+                        await _notificationService.SendRealtimeNotificationAsync(
+                            comment.UserId,
+                            title,
+                            message,
+                            "CommunityCommentReaction",
+                            commentId,
+                            actionUrl: $"/posts/{comment.PostId}#comment-{commentId}"
+                        );
+
+                        _logger.LogInformation(
+                            "Comment reaction notification sent to user {UserId} about reaction from {ReactorName}",
+                            comment.UserId, reactorName);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Failed to send comment reaction notification");
+                        // لا نرمي Exception - Reaction تمت إضافتها بنجاح
+                    }
+                }
+
+                _logger.LogInformation("Reaction added to comment {CommentId} by user {UserId}",
+                    commentId, userId);
+
                 return MapToCommentReactionDto(added);
             }
             catch (Exception ex)
@@ -1162,7 +1389,7 @@ namespace MomEase.infra.Services
             }
         }
 
-      
+
         public async Task<CommentReactionDto> UpdateCommentReactionAsync(
     int commentId, int userId, UpdateCommentReactionDto dto)
         {
@@ -1360,7 +1587,7 @@ namespace MomEase.infra.Services
             return new PostReportDto
             {
                 ReportId = report.ReportId,
-                PostId = report.PostId??0,
+                PostId = report.PostId ?? 0,
                 ReporterId = report.ReporterId,
                 ReporterName = report.Reporter != null
                     ? $"{report.Reporter.FirstName} {report.Reporter.LastName}"
@@ -1385,6 +1612,22 @@ namespace MomEase.infra.Services
             if (request == null) return relativeUrl;
 
             return $"{request.Scheme}://{request.Host}{relativeUrl}";
+        }
+        private string GetArabicReactionName(ReactionType type)
+        {
+            return type switch
+            {
+                ReactionType.LIKE => "لايك",
+                ReactionType.LOVE => "حب",
+                ReactionType.SUPPORT => "دعم",
+                ReactionType.HELPFUL => "مفيد",
+                _ => "تفاعل"
+            };
+        }
+
+        private async Task<Users?> GetUserByIdAsync(int userId)
+        {
+            return await _userRepository.GetByIdAsync(userId);
         }
     }
 }

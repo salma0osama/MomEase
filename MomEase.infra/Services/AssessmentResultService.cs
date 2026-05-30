@@ -306,7 +306,8 @@ namespace MomEase.infra.Services
                     title,
                     message,
                     "AssessmentResult",
-                    scoreLevel.LevelId
+                    scoreLevel.LevelId,
+                    actionUrl: $"/assessments/results/{scoreLevel.LevelId}"
                 );
 
                 _logger.LogInformation(
