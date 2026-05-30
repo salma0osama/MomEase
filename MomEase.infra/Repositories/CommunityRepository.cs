@@ -383,12 +383,14 @@ namespace MomEase.infra.Repositories
                 return await _context.SavedPosts
                     .Include(s => s.Post)
                         .ThenInclude(p => p.User)
+                        .ThenInclude(u => u.MotherProfile)
                     .Include(s => s.Post)
                         .ThenInclude(p => p.PostMedia)
                     .Include(s => s.Post)
                         .ThenInclude(p => p.PostComments)
                     .Include(s => s.Post)
                         .ThenInclude(p => p.PostReactions)
+                          //.ThenInclude(p => p.SavedPosts)
                     .Where(s => s.UserId == userId)
                     .OrderByDescending(s => s.SavedAt)
                     .ToListAsync();
