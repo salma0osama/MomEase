@@ -157,7 +157,7 @@ namespace MomEase.infra.Services
                     Message = GenerateSummaryMessage(childrenStatus, lang),
                     IsSent = false,  // ✅ صح - لأن ما احفظتش في DB
                     CreatedAt = DateTime.Now,
-                    ActionUrl = "/tracking"
+                    ActionUrl = "/tracking/child/{childId}"
                 };
             }
             catch (Exception ex)
