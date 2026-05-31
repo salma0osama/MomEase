@@ -130,7 +130,7 @@ namespace MomEase.infra.Services
                     savedResult.ResultId);
 
                 // 6️⃣ Send Notification
-                await SendAssessmentResultNotificationAsync(userId, scoreLevel);
+                await SendAssessmentResultNotificationAsync(userId, savedResult.ResultId, scoreLevel);
 
                 // 7️⃣ Mental Health Follow-up (EPDS only)
                 if (assessmentId == 1 && totalScore >= 13)
@@ -281,7 +281,7 @@ namespace MomEase.infra.Services
             };
         }
 
-        private async Task SendAssessmentResultNotificationAsync(int userId, ScoreLevel scoreLevel)
+        private async Task SendAssessmentResultNotificationAsync(int userId, int resultId, ScoreLevel scoreLevel)
         {
             try
             {
@@ -306,8 +306,8 @@ namespace MomEase.infra.Services
                     title,
                     message,
                     "AssessmentResult",
-                    scoreLevel.LevelId,
-                    actionUrl: $"/assessments/results/{scoreLevel.LevelId}"
+                   relatedEntityId: resultId,
+                    actionUrl: $"/assessments/results/{resultId}"
                 );
 
                 _logger.LogInformation(
