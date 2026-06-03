@@ -371,12 +371,12 @@ namespace MomEase.infra.Services
 
                         if (lang == "ar")
                         {
-                            title = "💬 تعليق جديد على بوستك";
+                            title = " تعليق جديد على بوستك";
                             message = $"{commenterName} علق: \"{commentPreview}\"";
                         }
                         else
                         {
-                            title = "💬 New comment on your post";
+                            title = " New comment on your post";
                             message = $"{commenterName} commented: \"{commentPreview}\"";
                         }
 
@@ -574,12 +574,12 @@ namespace MomEase.infra.Services
 
                         if (lang == "ar")
                         {
-                            title = $"👏 تفاعل جديد على بوستك";
+                            title = $" تفاعل جديد على بوستك";
                             message = $"{reactorName} عمل {GetArabicReactionName(reactionType)} على بوستك {reactionEmoji}";
                         }
                         else
                         {
-                            title = "👏 New reaction on your post";
+                            title = " New reaction on your post";
                             message = $"{reactorName} reacted {reactionEmoji} to your post";
                         }
 
@@ -751,12 +751,12 @@ namespace MomEase.infra.Services
 
                         if (lang == "ar")
                         {
-                            title = "📌 حفظ جديد لبوستك";
+                            title = " حفظ جديد لبوستك";
                             message = $"{saverName} حفظ بوستك";
                         }
                         else
                         {
-                            title = "📌 Your post was saved";
+                            title = " Your post was saved";
                             message = $"{saverName} saved your post";
                         }
 
@@ -954,7 +954,7 @@ namespace MomEase.infra.Services
         }
 
         public async Task<PostReportDto> ReviewReportAsync(
-            int reportId, int adminId, ReviewReportDto dto)
+    int reportId, int adminId, ReviewReportDto dto)
         {
             try
             {
@@ -981,10 +981,16 @@ namespace MomEase.infra.Services
                         // 🔔 إرسال Notification: Admin حذف البوست
                         if (post != null)
                         {
+                            // ✅ اجلب لغة صاحب البوست
+                            var postOwner = post.User;
+                            var lang = postOwner?.PreferredLanguage ?? "en";
+
+                            // حذف الـ Media files
                             if (post.PostMedia != null && post.PostMedia.Any())
                                 foreach (var media in post.PostMedia)
                                     await _fileStorageService.DeleteFileAsync(media.MediaUrl);
 
+                            // حذف الـ Post
                             await _communityRepository.DeletePostAsync(post);
 
                             _logger.LogInformation(
@@ -993,10 +999,25 @@ namespace MomEase.infra.Services
 
                             try
                             {
+                                // ✅ بناء الرسالة حسب اللغة
+                                string title, message;
+
+                                if (lang == "ar")
+                                {
+                                    title = "تم حذف بوستك";
+                                    message = $"تم حذف بوستك من قبل الإدارة لمخالفة قوانين المجتمع.\n\nالسبب: {dto.AdminNote ?? "محتوى غير مناسب"}";
+                                }
+                                else
+                                {
+                                    title = "Post Removed";
+                                    message = $"Your post has been removed by admin due to community guideline violations.\n\nReason: {dto.AdminNote ?? "Inappropriate content"}";
+                                }
+
+                                // ✅ إرسال Notification
                                 await _notificationService.SendRealtimeNotificationAsync(
                                     post.UserId,
-                                    "🚫 Post Removed",
-                                    $"Your post has been removed by admin due to community guideline violations. Reason: {dto.AdminNote ?? "Inappropriate content"}",
+                                    title,
+                                    message,
                                     "CommunityPostDeleted",
                                     post.PostId,
                                     actionUrl: $"/my-posts"
@@ -1024,16 +1045,35 @@ namespace MomEase.infra.Services
                         // 🔔 إرسال Notification: Admin بعت تحذير
                         if (post != null)
                         {
+                            // ✅ اجلب لغة صاحب البوست
+                            var postOwner = post.User;
+                            var lang = postOwner?.PreferredLanguage ?? "en";
+
                             _logger.LogInformation(
                                 "Sending warning notification to user {UserId}",
                                 post.UserId);
 
                             try
                             {
+                                // ✅ بناء الرسالة حسب اللغة
+                                string title, message;
+
+                                if (lang == "ar")
+                                {
+                                    title = " تحذير من الإدارة";
+                                    message = dto.AdminNote ?? "بوستك ينتهك قوانين المجتمع. يرجى مراجعة سياساتنا وتجنب تكرار هذا المحتوى.";
+                                }
+                                else
+                                {
+                                    title = " Warning from Admin";
+                                    message = dto.AdminNote ?? "Your post violates community guidelines. Please review our policies and avoid similar content.";
+                                }
+
+                                // ✅ إرسال Notification
                                 await _notificationService.SendRealtimeNotificationAsync(
                                     post.UserId,
-                                    "⚠️ Warning from Admin",
-                                    dto.AdminNote ?? "Your post violates community guidelines. Please review our policies.",
+                                    title,
+                                    message,
                                     "CommunityWarning",
                                     post.PostId,
                                     actionUrl: $"/posts/{post.PostId}"
@@ -1052,16 +1092,19 @@ namespace MomEase.infra.Services
 
                     case "Dismiss":
                         // مفيش notification - البلاغ اترفض
+                        _logger.LogInformation(
+                            "Report {ReportId} dismissed by admin {AdminId}",
+                            reportId, adminId);
                         break;
                 }
 
+                // تحديث الـ Report في DB
                 await _communityRepository.UpdateReportFields(
-    reportId, adminId, dto.Action, dto.AdminNote?.Trim());
+                    reportId, adminId, dto.Action, dto.AdminNote?.Trim());
 
-                // ✅ جيبي الـ report بدون Include للـ Post عشان ممكن يكون اتحذف
+                // ✅ جيبي الـ report محدّث
                 var freshReport = await _communityRepository.GetReportByIdAsync(reportId);
 
-                // ✅ لو البوست اتحذف return مباشرة بدون Post data
                 return new PostReportDto
                 {
                     ReportId = reportId,
@@ -1134,12 +1177,12 @@ namespace MomEase.infra.Services
 
                         if (lang == "ar")
                         {
-                            title = "📍 رد جديد على تعليقك";
+                            title = " رد جديد على تعليقك";
                             message = $"{replierName} رد: \"{replyPreview}\"";
                         }
                         else
                         {
-                            title = "📍 New reply to your comment";
+                            title = " New reply to your comment";
                             message = $"{replierName} replied: \"{replyPreview}\"";
                         }
 
@@ -1307,12 +1350,12 @@ namespace MomEase.infra.Services
 
                         if (lang == "ar")
                         {
-                            title = "👏 تفاعل جديد على تعليقك";
+                            title = " تفاعل جديد على تعليقك";
                             message = $"{reactorName} عمل {arabicReactionName} {reactionEmoji} على تعليقك";
                         }
                         else
                         {
-                            title = "👏 New reaction on your comment";
+                            title = " New reaction on your comment";
                             message = $"{reactorName} reacted {reactionEmoji} to your comment";
                         }
 
