@@ -25,5 +25,6 @@ namespace MomEase.core.Interfaces
             int childId,
             int count
         );
+        Task<bool> ExistsForDateAsync(int childId, DateTime date);
     }
 }

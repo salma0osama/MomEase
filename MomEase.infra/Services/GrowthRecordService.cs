@@ -26,7 +26,12 @@ namespace MomEase.infra.Services
             if (child == null || child.UserId != userId)
                 throw new UnauthorizedAccessException("Access denied");
 
+            // ✅ التحقق من عدم وجود record في نفس اليوم
             var recordDate = DateTime.Now;
+            var alreadyExists = await _growthRepo.ExistsForDateAsync(childId, recordDate);
+            if (alreadyExists)
+                throw new InvalidOperationException("A growth record already exists for today. You can update the existing record instead.");
+
             var ageInWeeks = (int)((recordDate - child.BirthDate).TotalDays / 7);
 
             var record = new GrowthRecords
@@ -195,6 +200,7 @@ namespace MomEase.infra.Services
             var heightGain = lastRecord.HeightCm - firstRecord.HeightCm;
 
             var ageSpanMonths = (lastRecord.RecordDate - firstRecord.RecordDate).TotalDays / 30;
+            if (ageSpanMonths < 1) ageSpanMonths = 1;
 
             return new GrowthStatisticsDto
             {

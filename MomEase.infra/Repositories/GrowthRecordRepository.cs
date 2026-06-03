@@ -88,5 +88,11 @@ namespace MomEase.infra.Repositories
                 .OrderBy(g => g.RecordDate) // reverse back
                 .ToListAsync();
         }
+        public async Task<bool> ExistsForDateAsync(int childId, DateTime date)
+        {
+            return await _context.GrowthRecords
+                .AnyAsync(g => g.ChildId == childId
+                            && g.RecordDate.Date == date.Date);
+        }
     }
 }
