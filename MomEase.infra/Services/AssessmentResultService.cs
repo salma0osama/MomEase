@@ -129,9 +129,6 @@ namespace MomEase.infra.Services
                     "💾 Assessment result saved with ID {ResultId}",
                     savedResult.ResultId);
 
-                // 6️⃣ Send Notification
-                await SendAssessmentResultNotificationAsync(userId, savedResult.ResultId, scoreLevel);
-
                 // 7️⃣ Mental Health Follow-up (EPDS only)
                 if (assessmentId == 1 && totalScore >= 13)
                 {
@@ -281,45 +278,5 @@ namespace MomEase.infra.Services
             };
         }
 
-        private async Task SendAssessmentResultNotificationAsync(int userId, int resultId, ScoreLevel scoreLevel)
-        {
-            try
-            {
-                var lang = LanguageHelper.GetLang(_httpContextAccessor);
-
-                string emoji = scoreLevel.LevelName switch
-                {
-                    "Severe" => "🚨",
-                    "Moderate" => "⚠️",
-                    "Mild" => "💛",
-                    _ => "✅"
-                };
-
-                string titleEn = $"{emoji} Assessment Result - {scoreLevel.LevelName}";
-                string titleAr = $"{emoji} نتيجة الاختبار - {scoreLevel.LevelNameAr ?? scoreLevel.LevelName}";
-
-                string title = LanguageHelper.GetLocalized(titleAr, titleEn, lang);
-                string message = LanguageHelper.GetLocalized(scoreLevel.AdviceAr, scoreLevel.Advice, lang);
-
-                await _notificationService.SendRealtimeNotificationAsync(
-                    userId,
-                    title,
-                    message,
-                    "AssessmentResult",
-                   relatedEntityId: resultId,
-                    actionUrl: $"/assessments/results/{resultId}"
-                );
-
-                _logger.LogInformation(
-                    "📤 Assessment result notification sent to user {UserId}",
-                    userId);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex,
-                    "❌ Failed to send assessment result notification to user {UserId}",
-                    userId);
-            }
-        }
     }
 }
