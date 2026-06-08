@@ -52,5 +52,31 @@ namespace MomEase.infra.Repositories
                 .OrderBy(m => m.CreatedAt)
                 .ToListAsync();
         }
+        public async Task<bool> DeleteChatAsync(int chatId)
+        {
+            try
+            {
+                var chat = await _context.ChatBots
+                    .Include(c => c.ChatMessages)
+                    .FirstOrDefaultAsync(c => c.ChatId == chatId);
+
+                if (chat == null)
+                    return false;
+
+                // احذف الرسائل أولاً (foreign key)
+                _context.ChatMessages.RemoveRange(chat.ChatMessages);
+
+                // ثم احذف الـ Chat
+                _context.ChatBots.Remove(chat);
+                await _context.SaveChangesAsync();
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"❌ Error deleting chat: {ex.Message}");
+                throw;
+            }
+        }
     }
 }

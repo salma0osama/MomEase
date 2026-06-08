@@ -12,5 +12,6 @@ namespace MomEase.core.Interfaces
         Task<ChatBot> GetOrCreateChatAsync(int userId);
         Task AddMessageAsync(ChatMessages message);
         Task<List<ChatMessages>> GetChatHistoryAsync(int chatId);
+        Task<bool> DeleteChatAsync(int chatId);
     }
 }

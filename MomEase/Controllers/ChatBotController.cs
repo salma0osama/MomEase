@@ -149,5 +149,33 @@ namespace PostCare.API.Controllers
                 });
             }
         }
+        /// <summary>
+        /// Delete a specific chat from history
+        /// </summary>
+        [HttpDelete("delete/{chatId}")]
+        public async Task<IActionResult> DeleteChat(int chatId)
+        {
+            try
+            {
+                var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (!int.TryParse(userIdClaim, out int userId))
+                    return Unauthorized();
+
+                var result = await _chatService.DeleteChatAsync(userId, chatId);
+
+                if (result)
+                    return Ok(new { success = true, message = "Chat deleted successfully" });
+                else
+                    return NotFound(new { error = "Chat not found" });
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return Forbid();
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { error = ex.Message });
+            }
+        }
     }
 }
