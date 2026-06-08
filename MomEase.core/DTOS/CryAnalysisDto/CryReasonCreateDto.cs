@@ -1,13 +1,14 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
 
-namespace MomEase.core.Entities
+namespace MomEase.core.DTOS.CryAnalysisDto
 {
-    public class CryReasons
+    public class CryReasonCreateDto
     {
-        [Key]
-        public int CryreasonId { get; set; }
-
         [Required]
         [MaxLength(255)]
         public string Name { get; set; }
@@ -18,8 +19,5 @@ namespace MomEase.core.Entities
         public string Advice { get; set; }
 
         public string AdviceAr { get; set; }
-
-        // Navigation Property
-        public virtual ICollection<CryAnalyses> CryAnalyses { get; set; }
     }
 }

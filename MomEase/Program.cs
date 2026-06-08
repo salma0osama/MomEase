@@ -170,6 +170,12 @@ namespace MomEase
                 // DailyTrackingReminder
                 builder.Services.AddScoped<IDailyTrackingReminderRepository, DailyTrackingReminderRepository>();
                 builder.Services.AddScoped<IDailyTrackingReminderService, DailyTrackingReminderService>();
+                // Cry Analysis Services
+                builder.Services.AddScoped<ICryAnalysisRepository, CryAnalysisRepository>();
+                builder.Services.AddScoped<ICryReasonsRepository, CryReasonsRepository>();
+                builder.Services.AddScoped<ICryAnalysisAIService, CryAnalysisAIService>();
+                builder.Services.AddScoped<ICryAnalysisService, CryAnalysisService>();
+                builder.Services.AddScoped<ICryReasonsService, CryReasonsService>();
 
                 // Add Background Service
                 builder.Services.AddHostedService<DailyTrackingReminderBackgroundService>();

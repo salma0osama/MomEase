@@ -1,10 +1,6 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations.Schema;
 using System.ComponentModel.DataAnnotations;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace MomEase.core.Entities
 {
@@ -16,8 +12,7 @@ namespace MomEase.core.Entities
         [Required]
         public int UserId { get; set; }
 
-        [Required]
-        public int ChildId { get; set; }
+        public int? ChildId { get; set; }
 
         [Required]
         [MaxLength(500)]
@@ -25,7 +20,11 @@ namespace MomEase.core.Entities
 
         public string Result { get; set; }
 
+        public double Confidence { get; set; }
+
         public int? CryreasonId { get; set; }
+
+        public DateTime CreatedAt { get; set; } = DateTime.Now;
 
         // Navigation Properties
         [ForeignKey("UserId")]
