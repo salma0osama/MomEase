@@ -19,5 +19,13 @@
         Done = 1,     // اتعمل
         Missed = 2    // فات موعده ومعملوش
     }
+    public enum CryReasonName
+    {
+        belly_pain,
+        burping,
+        discomfort,
+        hungry,
+        laugh
+    }
 
 }
