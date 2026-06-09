@@ -2,22 +2,21 @@
 using Microsoft.AspNetCore.Mvc;
 using MomEase.core.DTOS.ChatBot;
 using MomEase.core.Interfaces;
-using System;
 using System.Security.Claims;
-using System.Threading.Tasks;
 
 namespace PostCare.API.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    //[Authorize]
     public class ChatBotController : ControllerBase
     {
         private readonly IChatBotService _chatService;
+        private readonly ILogger<ChatBotController> _logger;
 
-        public ChatBotController(IChatBotService chatService)
+        public ChatBotController(IChatBotService chatService, ILogger<ChatBotController> logger)
         {
-            _chatService = chatService;
+            _chatService = chatService ?? throw new ArgumentNullException(nameof(chatService));
+            _logger = logger;
         }
 
         /// <summary>
@@ -28,13 +27,12 @@ namespace PostCare.API.Controllers
         {
             try
             {
-                // Extract UserId from JWT token
+                // ✅ Extract UserId from JWT or use from request (for testing)
                 var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
-                // ✅ TEST MODE FALLBACK (no authentication)
                 if (string.IsNullOrEmpty(userIdClaim))
                 {
-                    if (request.UserId > 0)
+                    if (request?.UserId > 0)
                     {
                         userIdClaim = request.UserId.ToString();
                     }
@@ -44,19 +42,15 @@ namespace PostCare.API.Controllers
                     }
                 }
 
-                // Convert UserId to integer
                 if (!int.TryParse(userIdClaim, out int userId))
-                {
                     return BadRequest(new { message = "Invalid user ID format" });
-                }
 
-                // Ensure the UserId in request matches the token
+                // ✅ Verify userId matches
                 if (request.UserId != userId)
-                {
-                    return Forbid(); // 403
-                }
+                    return Forbid();
 
-                // Send the message
+                _logger.LogInformation($"📨 Message from user {userId}: {request.Message.Substring(0, Math.Min(30, request.Message.Length))}...");
+
                 var response = await _chatService.SendMessageAsync(request);
 
                 return Ok(new
@@ -67,6 +61,7 @@ namespace PostCare.API.Controllers
             }
             catch (ArgumentException ex)
             {
+                _logger.LogWarning(ex, "Validation error");
                 return BadRequest(new
                 {
                     success = false,
@@ -75,27 +70,21 @@ namespace PostCare.API.Controllers
             }
             catch (InvalidOperationException ex)
             {
-                return NotFound(new
-                {
-                    success = false,
-                    message = ex.Message
-                });
-            }
-            catch (HttpRequestException ex)
-            {
+                _logger.LogError(ex, "Operation failed");
                 return StatusCode(503, new
                 {
                     success = false,
-                    message = "ChatBot service is temporarily unavailable. Please try again later.",
+                    message = "ChatBot service is temporarily unavailable. Make sure Ollama is running!",
                     details = ex.Message
                 });
             }
             catch (Exception ex)
             {
+                _logger.LogError(ex, "Unexpected error");
                 return StatusCode(500, new
                 {
                     success = false,
-                    message = "An unexpected error occurred while processing your request",
+                    message = "An unexpected error occurred",
                     details = ex.Message
                 });
             }
@@ -109,19 +98,15 @@ namespace PostCare.API.Controllers
         {
             try
             {
-                // Extract UserId from JWT token
                 var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
-                // ✅ TEST MODE FALLBACK (no authentication)
                 if (string.IsNullOrEmpty(userIdClaim))
-                {
                     return Unauthorized(new { message = "User not authenticated" });
-                }
 
                 if (!int.TryParse(userIdClaim, out int userId))
-                {
                     return BadRequest(new { message = "Invalid user ID format" });
-                }
+
+                _logger.LogInformation($"📖 Fetching history for user {userId}");
 
                 var history = await _chatService.GetChatHistoryAsync(userId);
 
@@ -131,26 +116,20 @@ namespace PostCare.API.Controllers
                     data = history
                 });
             }
-            catch (InvalidOperationException ex)
-            {
-                return NotFound(new
-                {
-                    success = false,
-                    message = ex.Message
-                });
-            }
             catch (Exception ex)
             {
+                _logger.LogError(ex, "Error fetching chat history");
                 return StatusCode(500, new
                 {
                     success = false,
-                    message = "An error occurred while fetching chat history",
+                    message = "Failed to retrieve chat history",
                     details = ex.Message
                 });
             }
         }
+
         /// <summary>
-        /// Delete a specific chat from history
+        /// Delete a chat
         /// </summary>
         [HttpDelete("delete/{chatId}")]
         public async Task<IActionResult> DeleteChat(int chatId)
@@ -158,15 +137,18 @@ namespace PostCare.API.Controllers
             try
             {
                 var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
                 if (!int.TryParse(userIdClaim, out int userId))
                     return Unauthorized();
+
+                _logger.LogInformation($"🗑️ Deleting chat {chatId} for user {userId}");
 
                 var result = await _chatService.DeleteChatAsync(userId, chatId);
 
                 if (result)
                     return Ok(new { success = true, message = "Chat deleted successfully" });
                 else
-                    return NotFound(new { error = "Chat not found" });
+                    return NotFound(new { success = false, message = "Chat not found" });
             }
             catch (UnauthorizedAccessException)
             {
@@ -174,7 +156,8 @@ namespace PostCare.API.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { error = ex.Message });
+                _logger.LogError(ex, "Error deleting chat");
+                return StatusCode(500, new { success = false, message = ex.Message });
             }
         }
     }
