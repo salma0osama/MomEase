@@ -91,7 +91,7 @@ namespace MomEase.infra.Services
                 if (child == null)
                     throw new KeyNotFoundException($"Child with ID {childId} not found");
 
-                if (createDto.FeedingDate.Date > DateTime.Now.Date)
+                if (createDto.FeedingDate.Date > DateTime.Now.AddHours(1).Date)
                     throw new ArgumentException("Cannot create feeding record for future dates");
 
                 var ageInMonths = CalculateAgeInMonths(child.BirthDate);
@@ -374,7 +374,7 @@ namespace MomEase.infra.Services
             if (child == null)
                 throw new KeyNotFoundException($"Child with ID {childId} not found");
 
-            var today = DateTime.Now.Date;
+            var today = DateTime.Now.AddHours(1).Date;
             var weekStart = today.AddDays(-6); // ✅ آخر 7 أيام
             var weekEnd = today;
 
@@ -416,7 +416,7 @@ namespace MomEase.infra.Services
             if (child == null)
                 throw new KeyNotFoundException($"Child with ID {childId} not found");
 
-            var now = DateTime.Now;
+            var now = DateTime.Now.AddHours(1);
             var startOfMonth = new DateTime(now.Year, now.Month, 1);
             var daysInMonth = DateTime.DaysInMonth(now.Year, now.Month);
 
@@ -465,7 +465,7 @@ namespace MomEase.infra.Services
         /// </summary>
         private int CalculateAgeInMonths(DateTime birthDate)
         {
-            var today = DateTime.Now;
+            var today = DateTime.Now.AddHours(1);
             var months = ((today.Year - birthDate.Year) * 12) + today.Month - birthDate.Month;
 
             if (today.Day < birthDate.Day)

@@ -81,7 +81,7 @@ namespace MomEase.infra.Repositories
                 .FirstOrDefaultAsync(t =>
                     t.UserId == userId &&
                     t.Token == otpCode &&
-                    t.ExpiresAt > DateTime.Now &&
+                    t.ExpiresAt > DateTime.Now.AddHours(1) &&
                     !t.IsUsed
                 );
         }

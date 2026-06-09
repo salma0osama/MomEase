@@ -94,7 +94,7 @@ namespace MomEase.infra.Services
                 CategoryName = localizedCategoryName,  // ⭐ محلّي
                 CategoryId = article.CategoryId,
                 ReadingTimeMinutes = CalculateReadingTime(localizedContent),
-                PublishedDate = article.PublishedDate ?? DateTime.Now,
+                PublishedDate = article.PublishedDate ?? DateTime.Now.AddHours(1),
                 SourceUrl = article.SourceUrl,
                 SourceName = article.SourceName,
                 IsSaved = isSaved

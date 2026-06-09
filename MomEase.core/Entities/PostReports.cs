@@ -19,7 +19,7 @@ namespace MomEase.core.Entities
         public int? ReviewedById { get; set; }
         public string? Action { get; set; }
         public string? AdminNote { get; set; }
-        public DateTime CreatedAt { get; set; } = DateTime.Now;
+        public DateTime CreatedAt { get; set; } = DateTime.Now.AddHours(1);
         public DateTime? ReviewedAt { get; set; }
 
         [ForeignKey("PostId")]

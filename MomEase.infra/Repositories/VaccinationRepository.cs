@@ -168,7 +168,7 @@ namespace MomEase.infra.Repositories
         {
             try
             {
-                var today = DateTime.Now.Date;
+                var today = DateTime.Now.AddHours(1).Date;
                 var futureDate = today.AddDays(daysAhead);
 
                 return await _context.ChildVaccinations
@@ -191,7 +191,7 @@ namespace MomEase.infra.Repositories
         {
             try
             {
-                var today = DateTime.Now.Date;
+                var today = DateTime.Now.AddHours(1).Date;
 
                 return await _context.ChildVaccinations
                     .Include(cv => cv.Vaccination)

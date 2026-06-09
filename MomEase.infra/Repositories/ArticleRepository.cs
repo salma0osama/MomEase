@@ -22,7 +22,7 @@ namespace MomEase.infra.Repositories
 
         public async Task<Articles> CreateAsync(Articles article)
         {
-            article.PublishedDate = DateTime.Now;
+            article.PublishedDate = DateTime.Now.AddHours(1);
             await _context.Articles.AddAsync(article);
             await _context.SaveChangesAsync();
             return article;

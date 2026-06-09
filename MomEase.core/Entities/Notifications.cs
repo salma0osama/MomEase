@@ -35,7 +35,7 @@ namespace MomEase.core.Entities
         public bool IsRead { get; set; } = false;
 
         [Required]
-        public DateTime CreatedAt { get; set; } = DateTime.Now;
+        public DateTime CreatedAt { get; set; } = DateTime.Now.AddHours(1);
 
         public DateTime? ReadAt { get; set; } // ⬅️ إضافة
 

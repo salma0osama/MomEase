@@ -72,7 +72,7 @@ namespace MomEase.infra.Services
                     Result = predictedDisease.ToString(),
                     DiseaseId = disease?.DiseaseId,
                     Confidence = confidence,
-                    CreatedAt = DateTime.Now
+                    CreatedAt = DateTime.Now.AddHours(1)
                 };
 
                 var saved = await _analysisRepo.AddAsync(analysis);

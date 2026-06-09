@@ -44,7 +44,7 @@ namespace MomEase.infra.Services
                 issuer: _jwtSettings.Issuer,
                 audience: _jwtSettings.Audience,
                 claims: claims,
-                expires: DateTime.Now.AddMinutes(_jwtSettings.AccessTokenExpirationMinutes),
+                expires: DateTime.Now.AddHours(1).AddMinutes(_jwtSettings.AccessTokenExpirationMinutes),
                 signingCredentials: credentials
             );
 
@@ -71,8 +71,8 @@ namespace MomEase.infra.Services
                 {
                     UserId = userId,
                     Token = token,
-                    ExpiresAt = DateTime.Now.AddDays(_jwtSettings.RefreshTokenExpirationDays),
-                    CreatedAt = DateTime.Now,
+                    ExpiresAt = DateTime.Now.AddHours(1).AddDays(_jwtSettings.RefreshTokenExpirationDays),
+                    CreatedAt = DateTime.Now.AddHours(1),
                     CreatedByIp = ipAddress
                 };
 
@@ -115,7 +115,7 @@ namespace MomEase.infra.Services
 
             Console.WriteLine($"[DEBUG] Token found, IsActive: {refreshToken.IsActive}");
 
-            refreshToken.RevokedAt = DateTime.Now;
+            refreshToken.RevokedAt = DateTime.Now.AddHours(1);
             refreshToken.RevokedByIp = ipAddress ?? "Unknown";
 
             await _context.SaveChangesAsync();

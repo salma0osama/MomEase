@@ -38,10 +38,10 @@ namespace MomEase.infra.Services
             if (string.IsNullOrWhiteSpace(dto.FullName))
                 throw new ArgumentException("Child name is required");
 
-            if (dto.BirthDate > DateTime.Now)
+            if (dto.BirthDate > DateTime.Now.AddHours(1))
                 throw new ArgumentException("Birth date cannot be in the future");
 
-            if (dto.BirthDate < DateTime.Now.AddYears(-5))
+            if (dto.BirthDate < DateTime.Now.AddHours(1).AddYears(-5))
                 throw new ArgumentException("Birth date must be within the last five years");
 
             // Parse enums (case-insensitive)
@@ -119,7 +119,7 @@ namespace MomEase.infra.Services
             if (!string.IsNullOrEmpty(dto.Gender) && Enum.TryParse<Gender>(dto.Gender, true, out var gender))
                 child.Gender = gender;
 
-            if (dto.BirthDate.HasValue && dto.BirthDate.Value <= DateTime.Now && dto.BirthDate.Value > DateTime.Now.AddYears(-5))
+            if (dto.BirthDate.HasValue && dto.BirthDate.Value <= DateTime.Now.AddHours(1) && dto.BirthDate.Value > DateTime.Now.AddHours(1).AddYears(-5))
                 child.BirthDate = dto.BirthDate.Value;
 
             if (!string.IsNullOrEmpty(dto.DeliveryType) && Enum.TryParse<DeliveryType>(dto.DeliveryType, true, out var deliveryType))
@@ -251,7 +251,7 @@ namespace MomEase.infra.Services
         // Helper: Calculate age in months
         private int CalculateAgeInMonths(DateTime birthDate)
         {
-            var today = DateTime.Now;
+            var today = DateTime.Now.AddHours(1);
             var months = ((today.Year - birthDate.Year) * 12) + today.Month - birthDate.Month;
             if (today.Day < birthDate.Day)
                 months--;
@@ -261,7 +261,7 @@ namespace MomEase.infra.Services
         // Helper: Calculate age in days
         private int CalculateAgeInDays(DateTime birthDate)
         {
-            var today = DateTime.Now;
+            var today = DateTime.Now.AddHours(1);
             var days = (today - birthDate).Days;
             return days < 0 ? 0 : days;
         }

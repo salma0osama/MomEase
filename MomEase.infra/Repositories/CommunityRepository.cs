@@ -575,7 +575,7 @@ namespace MomEase.infra.Repositories
                     .Where(r => r.ReportId == reportId)
                     .ExecuteUpdateAsync(s => s
                         .SetProperty(r => r.ReviewedById, adminId)
-                        .SetProperty(r => r.ReviewedAt, DateTime.Now)
+                        .SetProperty(r => r.ReviewedAt, DateTime.Now.AddHours(1))
                         .SetProperty(r => r.Action, action)
                         .SetProperty(r => r.AdminNote, adminNote));
             }

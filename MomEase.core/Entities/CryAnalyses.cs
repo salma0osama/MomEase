@@ -24,7 +24,7 @@ namespace MomEase.core.Entities
 
         public int? CryreasonId { get; set; }
 
-        public DateTime CreatedAt { get; set; } = DateTime.Now;
+        public DateTime CreatedAt { get; set; } = DateTime.Now.AddHours(1);
 
         // Navigation Properties
         [ForeignKey("UserId")]

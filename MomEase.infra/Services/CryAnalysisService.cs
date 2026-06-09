@@ -84,7 +84,7 @@ namespace MomEase.infra.Services
                     Result = prediction.ToString(),
                     Confidence = confidence,
                     CryreasonId = reason?.CryreasonId,
-                    CreatedAt = DateTime.Now
+                    CreatedAt = DateTime.Now.AddHours(1)
                 };
 
                 var saved = await _analysisRepo.AddAsync(analysis);

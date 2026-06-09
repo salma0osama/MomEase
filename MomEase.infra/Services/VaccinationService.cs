@@ -231,8 +231,8 @@ namespace MomEase.infra.Services
                     .GetUpcomingVaccinationsAsync(childId, daysAhead);
 
                 var soonVaccinations = upcoming.Where(v =>
-                    (v.ScheduledDate - DateTime.Now).TotalDays <= 7
-                    && (v.ScheduledDate - DateTime.Now).TotalDays >= 0)
+                    (v.ScheduledDate - DateTime.Now.AddHours(1)).TotalDays <= 7
+                    && (v.ScheduledDate - DateTime.Now.AddHours(1)).TotalDays >= 0)
                     .ToList();
 
                 foreach (var vaccination in soonVaccinations)
@@ -306,7 +306,7 @@ namespace MomEase.infra.Services
                     throw new InvalidOperationException("Vaccination already marked as done");
 
                 vaccination.Status = VaccineStatus.Done;
-                vaccination.TakenDate = dto.TakenDate ?? DateTime.Now;
+                vaccination.TakenDate = dto.TakenDate ?? DateTime.Now.AddHours(1);
 
                 await _vaccinationRepository.UpdateChildVaccinationAsync(vaccination);
 
@@ -361,7 +361,7 @@ namespace MomEase.infra.Services
         private async Task AutoUpdateMissedVaccinationsAsync(int childId)
         {
             var allVaccinations = await _vaccinationRepository.GetChildVaccinationsAsync(childId);
-            var today = DateTime.Now.Date;
+            var today = DateTime.Now.AddHours(1).Date;
 
             var missedVaccinations = allVaccinations
                 .Where(cv => cv.Status == VaccineStatus.Pending

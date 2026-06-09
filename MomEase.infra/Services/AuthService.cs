@@ -67,10 +67,10 @@ namespace MomEase.infra.Services
                 Phone = registerDto.Phone,
                 Age = registerDto.Age,
                 Role = Role.MOTHER,
-                CreatedAt = DateTime.Now,
+                CreatedAt = DateTime.Now.AddHours(1),
                 IsEmailVerified = false,
                 EmailVerificationToken = otpCode,
-                EmailVerificationTokenExpiry = DateTime.Now.AddMinutes(5)
+                EmailVerificationTokenExpiry = DateTime.Now.AddHours(1).AddMinutes(5)
             };
 
             await _authRepository.AddUserAsync(user);
@@ -136,8 +136,8 @@ namespace MomEase.infra.Services
                 Role = user.Role.ToString(),
                 AccessToken = accessToken,
                 RefreshToken = refreshToken,
-                AccessTokenExpiration = DateTime.Now.AddMinutes(120),
-                RefreshTokenExpiration = DateTime.Now.AddDays(14)
+                AccessTokenExpiration = DateTime.Now.AddHours(1).AddMinutes(120),
+                RefreshTokenExpiration = DateTime.Now.AddHours(1).AddDays(14)
             };
         }
 
@@ -154,7 +154,7 @@ namespace MomEase.infra.Services
             if (user.EmailVerificationToken != verifyEmailDto.OtpCode)
                 throw new Exception("Invalid OTP code");
 
-            if (user.EmailVerificationTokenExpiry < DateTime.Now)
+            if (user.EmailVerificationTokenExpiry < DateTime.Now.AddHours(1))
                 throw new Exception("OTP code has expired. Please request a new one.");
 
             // Mark as verified
@@ -181,7 +181,7 @@ namespace MomEase.infra.Services
             // Generate new OTP
             var otpCode = GenerateOtpCode();
             user.EmailVerificationToken = otpCode;
-            user.EmailVerificationTokenExpiry = DateTime.Now.AddMinutes(5);
+            user.EmailVerificationTokenExpiry = DateTime.Now.AddHours(1).AddMinutes(5);
 
             await _authRepository.UpdateUserAsync(user);
             await _authRepository.SaveChangesAsync();
@@ -204,7 +204,7 @@ namespace MomEase.infra.Services
                 throw new Exception("Invalid refresh token");
 
             // Revoke old token
-            token.RevokedAt = DateTime.Now;
+            token.RevokedAt = DateTime.Now.AddHours(1);
             token.RevokedByIp = ipAddress ?? "Unknown";
             await _authRepository.UpdateRefreshTokenAsync(token);
             await _authRepository.SaveChangesAsync();
@@ -224,8 +224,8 @@ namespace MomEase.infra.Services
                 Role = user.Role.ToString(),
                 AccessToken = newAccessToken,
                 RefreshToken = newRefreshToken,
-                AccessTokenExpiration = DateTime.Now.AddMinutes(120),
-                RefreshTokenExpiration = DateTime.Now.AddDays(14)
+                AccessTokenExpiration = DateTime.Now.AddHours(1).AddMinutes(120),
+                RefreshTokenExpiration = DateTime.Now.AddHours(1).AddDays(14)
             };
         }
 
@@ -236,7 +236,7 @@ namespace MomEase.infra.Services
             if (token == null)
                 return false;
 
-            token.RevokedAt = DateTime.Now;
+            token.RevokedAt = DateTime.Now.AddHours(1);
             token.RevokedByIp = ipAddress ?? "Unknown";
 
             await _authRepository.UpdateRefreshTokenAsync(token);
@@ -269,10 +269,10 @@ namespace MomEase.infra.Services
         {
             var token = await _authRepository.GetRefreshTokenAsync(refreshToken);
 
-            if (token == null || token.RevokedAt != null || token.ExpiresAt <= DateTime.Now)
+            if (token == null || token.RevokedAt != null || token.ExpiresAt <= DateTime.Now.AddHours(1))
                 throw new Exception("Invalid token");
 
-            token.RevokedAt = DateTime.Now;
+            token.RevokedAt = DateTime.Now.AddHours(1);
             token.RevokedByIp = ipAddress ?? "Unknown";
 
             await _authRepository.UpdateRefreshTokenAsync(token);
@@ -293,8 +293,8 @@ namespace MomEase.infra.Services
             {
                 UserId = user.UserId,
                 Token = otpCode, 
-                ExpiresAt = DateTime.Now.AddMinutes(10), // 10 دقايق
-                CreatedAt = DateTime.Now
+                ExpiresAt = DateTime.Now.AddHours(1).AddMinutes(10), // 10 دقايق
+                CreatedAt = DateTime.Now.AddHours(1)
             };
 
             await _authRepository.AddPasswordResetTokenAsync(passwordResetToken);
@@ -332,7 +332,7 @@ namespace MomEase.infra.Services
 
             user.Password = passwordHash;
             resetToken.IsUsed = true;
-            resetToken.UsedAt = DateTime.Now;
+            resetToken.UsedAt = DateTime.Now.AddHours(1);
 
             await _authRepository.UpdateUserAsync(user);
             await _authRepository.UpdatePasswordResetTokenAsync(resetToken);
@@ -358,7 +358,7 @@ namespace MomEase.infra.Services
 
         //    user.Password = passwordHash;
         //    resetToken.IsUsed = true;
-        //    resetToken.UsedAt = DateTime.Now;
+        //    resetToken.UsedAt = DateTime.Now.AddHours(1);
 
         //    await _authRepository.UpdateUserAsync(user);
         //    await _authRepository.UpdatePasswordResetTokenAsync(resetToken);
@@ -419,7 +419,7 @@ namespace MomEase.infra.Services
                         IsExternalAuth = true,
                         IsEmailVerified = true,
                         Role = Role.MOTHER,
-                        CreatedAt = DateTime.Now
+                        CreatedAt = DateTime.Now.AddHours(1)
                     };
 
                     await _authRepository.AddUserAsync(user);
@@ -465,8 +465,8 @@ namespace MomEase.infra.Services
                     Role = user.Role.ToString(),
                     AccessToken = accessToken,
                     RefreshToken = refreshToken,
-                    AccessTokenExpiration = DateTime.Now.AddMinutes(120),
-                    RefreshTokenExpiration = DateTime.Now.AddDays(14)
+                    AccessTokenExpiration = DateTime.Now.AddHours(1).AddMinutes(120),
+                    RefreshTokenExpiration = DateTime.Now.AddHours(1).AddDays(14)
                 };
             }
             catch (Exception ex)
@@ -512,8 +512,8 @@ namespace MomEase.infra.Services
                         FirstName = existingUser.FirstName,
                         LastName = existingUser.LastName,
                         Role = existingUser.Role.ToString(),
-                        AccessTokenExpiration = DateTime.Now.AddMinutes(120),
-                        RefreshTokenExpiration = DateTime.Now.AddDays(14)
+                        AccessTokenExpiration = DateTime.Now.AddHours(1).AddMinutes(120),
+                        RefreshTokenExpiration = DateTime.Now.AddHours(1).AddDays(14)
                     };
                 }
 
@@ -528,7 +528,7 @@ namespace MomEase.infra.Services
                     IsEmailVerified = true,
                     IsExternalAuth = true,
                     GoogleId = facebookUser.Id,
-                    CreatedAt = DateTime.Now
+                    CreatedAt = DateTime.Now.AddHours(1)
                 };
 
                 await _authRepository.AddUserAsync(newUser);

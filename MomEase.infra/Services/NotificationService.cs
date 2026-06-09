@@ -55,7 +55,7 @@ namespace MomEase.infra.Services
                     RelatedEntityId = relatedEntityId,
                     ActionUrl = actionUrl,
                     IsRead = false,
-                    CreatedAt = DateTime.Now
+                    CreatedAt = DateTime.Now.AddHours(1)
                 };
 
                 var saved = await _repo.CreateAsync(notification);
@@ -171,7 +171,7 @@ namespace MomEase.infra.Services
                 }
 
                 notification.IsRead = true;
-                notification.ReadAt = DateTime.Now;
+                notification.ReadAt = DateTime.Now.AddHours(1);
 
                 await _repo.UpdateAsync(notification);
 

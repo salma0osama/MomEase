@@ -30,7 +30,7 @@ namespace MomEase.infra.Repositories
             {
                 // Update existing token
                 existingToken.UserId = userId;
-                existingToken.LastUsedAt = DateTime.Now;
+                existingToken.LastUsedAt = DateTime.Now.AddHours(1);
                 existingToken.IsActive = true;
 
                 await _context.SaveChangesAsync();
@@ -42,8 +42,8 @@ namespace MomEase.infra.Repositories
             {
                 UserId = userId,
                 Token = token,
-                CreatedAt = DateTime.Now,
-                LastUsedAt = DateTime.Now,
+                CreatedAt = DateTime.Now.AddHours(1),
+                LastUsedAt = DateTime.Now.AddHours(1),
                 IsActive = true
             };
 

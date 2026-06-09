@@ -61,7 +61,7 @@ namespace MomEase.infra.Repositories
             {
                 UserId = userId,
                 TipId = tipId,
-                SentAt = DateTime.Now
+                SentAt = DateTime.Now.AddHours(1)
             };
 
             await _context.SentMentalHealthTips.AddAsync(sentTip);

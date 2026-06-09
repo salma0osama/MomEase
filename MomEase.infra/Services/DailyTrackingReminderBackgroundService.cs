@@ -35,7 +35,7 @@ namespace MomEase.infra.Services
 
             while (!stoppingToken.IsCancellationRequested)
             {
-                var now = DateTime.Now;  
+                var now = DateTime.Now.AddHours(1);  
 
                 if (now >= _nextRunTime)
                 {
@@ -72,7 +72,7 @@ namespace MomEase.infra.Services
         /// </summary>
         private DateTime GetNextRunTime()
         {
-            var now = DateTime.Now;
+            var now = DateTime.Now.AddHours(1);
             var next = now.Date.AddHours(8);  // 6:00 PM => 18 // 8:00 AM
             //var next = now.AddSeconds(10);
             if (next <= now)

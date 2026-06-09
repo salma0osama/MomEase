@@ -35,7 +35,7 @@ namespace MomEase.infra.Services
             {
                 UserId = userId,
                 SearchTerm = searchTerm.Trim(),
-                SearchedAt = DateTime.Now
+                SearchedAt = DateTime.Now.AddHours(1)
             };
 
             var created = await _repository.CreateAsync(searchHistory);

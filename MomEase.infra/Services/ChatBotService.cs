@@ -36,14 +36,14 @@ namespace MomEase.infra.Services
 
             try
             {
-                Console.WriteLine($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] 📨 Message received from user {request.UserId}: {request.Message.Substring(0, Math.Min(50, request.Message.Length))}");
+                Console.WriteLine($"[{DateTime.Now.AddHours(1):yyyy-MM-dd HH:mm:ss}] 📨 Message received from user {request.UserId}: {request.Message.Substring(0, Math.Min(50, request.Message.Length))}");
                 // Get or create chat session for user
                 var chat = await _chatRepository.GetOrCreateChatAsync(request.UserId);
 
                 if (chat == null)
                     throw new InvalidOperationException("Failed to create or retrieve chat session");
 
-                Console.WriteLine($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] ✅ Chat {chat.ChatId} retrieved/created");
+                Console.WriteLine($"[{DateTime.Now.AddHours(1):yyyy-MM-dd HH:mm:ss}] ✅ Chat {chat.ChatId} retrieved/created");
 
                 // Save user's message to database
                 var userMessage = new ChatMessages
@@ -51,16 +51,16 @@ namespace MomEase.infra.Services
                     ChatId = chat.ChatId,
                     Sender = "User",
                     Message = request.Message.Trim(),
-                    CreatedAt = DateTime.Now
+                    CreatedAt = DateTime.Now.AddHours(1)
                 };
 
                 await _chatRepository.AddMessageAsync(userMessage);
-                Console.WriteLine($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] ✅ User message saved");
+                Console.WriteLine($"[{DateTime.Now.AddHours(1):yyyy-MM-dd HH:mm:ss}] ✅ User message saved");
                 // Get bot's reply from LLaMA API
                 string reply;
                 try
                 {
-                    Console.WriteLine($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] 🤖 Calling LLaMA API...");
+                    Console.WriteLine($"[{DateTime.Now.AddHours(1):yyyy-MM-dd HH:mm:ss}] 🤖 Calling LLaMA API...");
                     // Get last 6 messages for context
                     var history = await _chatRepository.GetChatHistoryAsync(chat.ChatId);
 
@@ -85,7 +85,7 @@ namespace MomEase.infra.Services
                         reply = @"أنا قلق جداً بشأن ما تصفينه. 
               إذا كنتِ تعانين من أعراض شديدة، يرجى طلب العناية الطبية الفورية أو الذهاب إلى أقرب غرفة طوارئ فوراً. 
               إذا كان الأمر عاجلاً، اتصلي بخدمات الطوارئ الآن. سلامتك هي أهم شيء.";
-                        Console.WriteLine($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] ⚠️ Critical keywords detected (Arabic)");
+                        Console.WriteLine($"[{DateTime.Now.AddHours(1):yyyy-MM-dd HH:mm:ss}] ⚠️ Critical keywords detected (Arabic)");
                     }
                     else if (englishKeywords.Any(k => request.Message.Contains(k, StringComparison.OrdinalIgnoreCase)))
                     {
@@ -93,17 +93,17 @@ namespace MomEase.infra.Services
               If you're experiencing severe symptoms, please seek immediate medical attention or go to the nearest emergency room immediately.
               If this is urgent, call emergency services right now.
               Your safety is the most important thing.";
-                        Console.WriteLine($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] ⚠️ Critical keywords detected (English)");
+                        Console.WriteLine($"[{DateTime.Now.AddHours(1):yyyy-MM-dd HH:mm:ss}] ⚠️ Critical keywords detected (English)");
                     }
                     else
                     {
                         reply = await _llamaService.GenerateReplyAsync(lastMessages);
-                        Console.WriteLine($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] ✅ Reply generated from LLaMA");
+                        Console.WriteLine($"[{DateTime.Now.AddHours(1):yyyy-MM-dd HH:mm:ss}] ✅ Reply generated from LLaMA");
                     }
 
                     if (string.IsNullOrWhiteSpace(reply))
                         reply = "Sorry, an error occurred while processing your message. Please try again.";
-                    Console.WriteLine($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] ❌ Empty reply received");
+                    Console.WriteLine($"[{DateTime.Now.AddHours(1):yyyy-MM-dd HH:mm:ss}] ❌ Empty reply received");
                 }
                 catch (HttpRequestException ex)
                 {
@@ -116,8 +116,8 @@ namespace MomEase.infra.Services
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] ❌ UNEXPECTED ERROR: {ex.Message}");
-                    Console.WriteLine($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] ❌ Stack Trace: {ex.StackTrace}");
+                    Console.WriteLine($"[{DateTime.Now.AddHours(1):yyyy-MM-dd HH:mm:ss}] ❌ UNEXPECTED ERROR: {ex.Message}");
+                    Console.WriteLine($"[{DateTime.Now.AddHours(1):yyyy-MM-dd HH:mm:ss}] ❌ Stack Trace: {ex.StackTrace}");
                     // Unexpected error from LLaMA service
                     reply = "Sorry, an unexpected error occurred.";
                     Console.WriteLine($"Unexpected error in LLaMA service: {ex.Message}");
@@ -129,11 +129,11 @@ namespace MomEase.infra.Services
                     ChatId = chat.ChatId,
                     Sender = "Bot",
                     Message = reply,
-                    CreatedAt = DateTime.Now
+                    CreatedAt = DateTime.Now.AddHours(1)
                 };
 
                 await _chatRepository.AddMessageAsync(botMessage);
-                Console.WriteLine($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] ✅ Bot message saved");
+                Console.WriteLine($"[{DateTime.Now.AddHours(1):yyyy-MM-dd HH:mm:ss}] ✅ Bot message saved");
 
                 return new ChatResponseDto
                 {

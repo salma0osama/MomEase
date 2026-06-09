@@ -70,7 +70,7 @@ namespace MomEase.infra.Services
                         throw new InvalidOperationException(
                             "Cannot use both 'lastMonths' and 'periodStart/periodEnd'.");
 
-                    periodEnd = DateTime.Now;
+                    periodEnd = DateTime.Now.AddHours(1);
                     periodStart = periodEnd.AddMonths(-dto.LastMonths.Value);
                 }
                 else if (dto.PeriodStart.HasValue && dto.PeriodEnd.HasValue)
@@ -88,7 +88,7 @@ namespace MomEase.infra.Services
                         "You must provide either 'lastMonths' OR 'periodStart' and 'periodEnd'.");
                 }
 
-                var childAgeInDays = (DateTime.Now - child.BirthDate).TotalDays;
+                var childAgeInDays = (DateTime.Now.AddHours(1) - child.BirthDate).TotalDays;
                 var requestedPeriodInDays = (periodEnd - periodStart).TotalDays;
 
                 if (requestedPeriodInDays > childAgeInDays)
@@ -903,14 +903,14 @@ namespace MomEase.infra.Services
                 PeriodStart = report.PeriodStart,
                 PeriodEnd = report.PeriodEnd,
                 GrowthStatus = translatedStatus,  // ⭐ مترجم
-                CreatedAt = DateTime.Now,
+                CreatedAt = DateTime.Now.AddHours(1),
                 ReportContent = translatedContent  // ⭐ مترجم
             };
         }
 
         private int CalculateAgeInMonths(DateTime birthDate)
         {
-            var today = DateTime.Now;
+            var today = DateTime.Now.AddHours(1);
             var months = ((today.Year - birthDate.Year) * 12) + today.Month - birthDate.Month;
             if (today.Day < birthDate.Day) months--;
             return months < 0 ? 0 : months;

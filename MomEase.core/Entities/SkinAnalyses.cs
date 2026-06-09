@@ -28,7 +28,7 @@ namespace MomEase.core.Entities
         public int? DiseaseId { get; set; }
 
         [Required]
-        public DateTime CreatedAt { get; set; } = DateTime.Now;
+        public DateTime CreatedAt { get; set; } = DateTime.Now.AddHours(1);
 
 
         // Navigation Properties

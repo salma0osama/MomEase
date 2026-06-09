@@ -20,7 +20,7 @@ namespace MomEase.core.Entities
         public int TipId { get; set; }
 
         [Required]
-        public DateTime SentAt { get; set; } = DateTime.Now;
+        public DateTime SentAt { get; set; } = DateTime.Now.AddHours(1);
 
         // Navigation Properties
         [ForeignKey("UserId")]

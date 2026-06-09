@@ -21,7 +21,7 @@ namespace MomEase.core.Entities
         public string SearchTerm { get; set; }
 
         [Required]
-        public DateTime SearchedAt { get; set; } = DateTime.Now;
+        public DateTime SearchedAt { get; set; } = DateTime.Now.AddHours(1);
 
         // Navigation Property
         [ForeignKey("UserId")]

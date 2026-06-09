@@ -34,7 +34,7 @@ namespace MomEase.core.Entities
         public Role Role { get; set; } = Role.MOTHER;
 
         [Required]
-        public DateTime CreatedAt { get; set; } = DateTime.Now;
+        public DateTime CreatedAt { get; set; } = DateTime.Now.AddHours(1);
         [MaxLength(10)]
         public string PreferredLanguage { get; set; } = "en";
 

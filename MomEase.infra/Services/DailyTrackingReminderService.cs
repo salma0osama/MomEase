@@ -66,7 +66,7 @@ namespace MomEase.infra.Services
                     {
                         // ✅ تحقق إذا كانت اتبعت النهارده قبل كده
                         var todayReminders = await _reminderRepository
-                            .GetByUserIdAndDateAsync(mother.UserId, DateTime.Now);
+                            .GetByUserIdAndDateAsync(mother.UserId, DateTime.Now.AddHours(1));
 
                         if (todayReminders.Any())
                         {
@@ -98,9 +98,9 @@ namespace MomEase.infra.Services
                         {
                             UserId = mother.UserId,
                             ChildId = children.FirstOrDefault()?.ChildId ?? 0,  // Reference child
-                            ReminderDate = DateTime.Now,
+                            ReminderDate = DateTime.Now.AddHours(1),
                             IsSent = true,
-                            SentAt = DateTime.Now
+                            SentAt = DateTime.Now.AddHours(1)
                         };
 
                         await _reminderRepository.CreateAsync(reminder);
@@ -151,12 +151,12 @@ namespace MomEase.infra.Services
                 {
                     // ReminderId = 0  // ما تبعثيش معرف وهمي
                     UserId = userId,
-                    ReminderDate = DateTime.Now,
+                    ReminderDate = DateTime.Now.AddHours(1),
                     ChildrenStatus = childrenStatus,
                     Title = lang == "ar" ? "📊 تذكير بيانات اليوم" : "📊 Today's Tracking Reminder",
                     Message = GenerateSummaryMessage(childrenStatus, lang),
                     IsSent = false,  // ✅ صح - لأن ما احفظتش في DB
-                    CreatedAt = DateTime.Now,
+                    CreatedAt = DateTime.Now.AddHours(1),
                     ActionUrl = "/tracking/child/{childId}"
                 };
             }
@@ -174,7 +174,7 @@ namespace MomEase.infra.Services
         /// </summary>
         private async Task<ChildTrackingStatusDto> GetChildTrackingStatusAsync(Child child, string lang = "en")
         {
-            var today = DateTime.Now.Date;
+            var today = DateTime.Now.AddHours(1).Date;
 
             // جيب آخر feeding record
             var feedingStatus = await GetFeedingStatusAsync(child.ChildId, today, lang);
@@ -287,7 +287,7 @@ namespace MomEase.infra.Services
                     HasData = false
                 };
 
-            var daysSince = (DateTime.Now.Date - lastRecord.RecordDate.Date).Days;
+            var daysSince = (DateTime.Now.AddHours(1).Date - lastRecord.RecordDate.Date).Days;
 
             return new GrowthStatusDto
             {

@@ -36,7 +36,7 @@ namespace MomEase.infra.Repositories
 
         public async Task<IEnumerable<MentalHealthFollowUp>> GetDueAssessmentRemindersAsync()
         {
-            var now = DateTime.Now;
+            var now = DateTime.Now.AddHours(1);
             return await _context.MentalHealthFollowUps
                 .Include(f => f.User)
                 .Where(f => !f.IsCompleted
@@ -47,7 +47,7 @@ namespace MomEase.infra.Repositories
 
         public async Task<IEnumerable<MentalHealthFollowUp>> GetDueTipsAsync()
         {
-            var now = DateTime.Now;
+            var now = DateTime.Now.AddHours(1);
             return await _context.MentalHealthFollowUps
                 .Include(f => f.User)
                 .Where(f => !f.IsCompleted && f.NextTipDate <= now)
@@ -67,7 +67,7 @@ namespace MomEase.infra.Repositories
             if (followUp != null)
             {
                 followUp.IsCompleted = true;
-                followUp.CompletedAt = DateTime.Now;
+                followUp.CompletedAt = DateTime.Now.AddHours(1);
                 await _context.SaveChangesAsync();
             }
         }

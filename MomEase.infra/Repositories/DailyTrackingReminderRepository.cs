@@ -52,7 +52,7 @@ namespace MomEase.infra.Repositories
             return await _context.DailyTrackingReminders
                 .Include(r => r.User)
                 .Include(r => r.Child)
-                .Where(r => !r.IsSent && r.ReminderDate.Date == DateTime.Now.Date)
+                .Where(r => !r.IsSent && r.ReminderDate.Date == DateTime.Now.AddHours(1).Date)
                 .ToListAsync();
         }
 

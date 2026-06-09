@@ -30,7 +30,7 @@ namespace MomEase.infra.Repositories
                 chat = new ChatBot
                 {
                     UserId = userId,
-                    Created_At = DateTime.Now
+                    Created_At = DateTime.Now.AddHours(1)
                 };
                 _context.ChatBots.Add(chat);
                 await _context.SaveChangesAsync();

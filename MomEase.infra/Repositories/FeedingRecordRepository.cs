@@ -52,7 +52,7 @@ namespace MomEase.infra.Repositories
 
         public async Task<List<ChildFeedingRecord>> GetLastNDaysAsync(int childId, int days)
         {
-            var startDate = DateTime.Now.Date.AddDays(-days);
+            var startDate = DateTime.Now.AddHours(1).Date.AddDays(-days);
             return await _context.ChildFeedingRecords
                 .Include(c => c.Child)  
                 .Include(c => c.FeedingReference)  
@@ -74,7 +74,7 @@ namespace MomEase.infra.Repositories
 
         public async Task<List<ChildFeedingRecord>> GetCurrentMonthAsync(int childId)
         {
-            var now = DateTime.Now;
+            var now = DateTime.Now.AddHours(1);
             var startOfMonth = new DateTime(now.Year, now.Month, 1);
             var endOfMonth = startOfMonth.AddMonths(1).AddDays(-1);
 

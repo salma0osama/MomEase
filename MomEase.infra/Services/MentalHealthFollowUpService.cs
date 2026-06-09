@@ -58,11 +58,11 @@ namespace MomEase.infra.Services
                     UserId = userId,
                     LastAssessmentResultId = assessmentResultId,
                     SeverityLevel = severityLevel,
-                    NextAssessmentDate = DateTime.Now.Add(assessmentInterval), // ⬅️ حسب الـ Severity
-                    NextTipDate = DateTime.Now.Add(tipInterval), // ⬅️ حسب الـ Severity
+                    NextAssessmentDate = DateTime.Now.AddHours(1).Add(assessmentInterval), // ⬅️ حسب الـ Severity
+                    NextTipDate = DateTime.Now.AddHours(1).Add(tipInterval), // ⬅️ حسب الـ Severity
                     AssessmentReminderSent = false,
                     IsCompleted = false,
-                    CreatedAt = DateTime.Now
+                    CreatedAt = DateTime.Now.AddHours(1)
                 };
 
                 await _followUpRepo.CreateAsync(followUp);
@@ -206,7 +206,7 @@ namespace MomEase.infra.Services
 
                         // ⬅️⬅️⬅️ المهم: حدد موعد الـ Tip الجاي حسب الـ Severity ⬅️⬅️⬅️
                         var (_, tipInterval) = GetIntervals(followUp.SeverityLevel);
-                        followUp.NextTipDate = DateTime.Now.Add(tipInterval);
+                        followUp.NextTipDate = DateTime.Now.AddHours(1).Add(tipInterval);
 
                         await _followUpRepo.UpdateAsync(followUp);
 

@@ -90,7 +90,7 @@ namespace MomEase.infra.Repositories
         // ✅ إضافة: Get Last N Days (كان مفقود)
         public async Task<List<ChildSleepRecord>> GetLastNDaysAsync(int childId, int days)
         {
-            var startDate = DateTime.Now.Date.AddDays(-days);
+            var startDate = DateTime.Now.AddHours(1).Date.AddDays(-days);
             return await _context.ChildSleepRecords
                 .Include(s => s.Child)
                 .Include(s => s.SleepReference)

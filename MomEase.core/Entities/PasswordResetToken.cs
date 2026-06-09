@@ -24,7 +24,7 @@ namespace MomEase.core.Entities
         public DateTime ExpiresAt { get; set; }
 
         [Required]
-        public DateTime CreatedAt { get; set; } = DateTime.Now;
+        public DateTime CreatedAt { get; set; } = DateTime.Now.AddHours(1);
 
         public bool IsUsed { get; set; } = false;
 
@@ -35,7 +35,7 @@ namespace MomEase.core.Entities
         public virtual Users User { get; set; }
 
         [NotMapped]
-        public bool IsExpired => DateTime.Now >= ExpiresAt;
+        public bool IsExpired => DateTime.Now.AddHours(1) >= ExpiresAt;
 
         [NotMapped]
         public bool IsValid => !IsUsed && !IsExpired;

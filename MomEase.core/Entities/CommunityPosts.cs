@@ -17,7 +17,7 @@ namespace MomEase.core.Entities
         public string? Text { get; set; }
 
         [Required]
-        public DateTime CreatedAt { get; set; } = DateTime.Now;
+        public DateTime CreatedAt { get; set; } = DateTime.Now.AddHours(1);
 
         public DateTime? UpdatedAt { get; set; }
 

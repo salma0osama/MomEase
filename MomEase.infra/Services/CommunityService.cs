@@ -106,7 +106,7 @@ namespace MomEase.infra.Services
                 {
                     UserId = userId,
                     Text = dto.Text?.Trim(),
-                    CreatedAt = DateTime.Now
+                    CreatedAt = DateTime.Now.AddHours(1)
                 };
 
                 var createdPost = await _communityRepository.AddPostAsync(post);
@@ -173,7 +173,7 @@ namespace MomEase.infra.Services
                 if (!string.IsNullOrWhiteSpace(dto.Text))
                 {
                     post.Text = dto.Text.Trim();
-                    post.UpdatedAt = DateTime.Now;
+                    post.UpdatedAt = DateTime.Now.AddHours(1);
                 }
 
                 await _communityRepository.UpdatePostAsync(post);
@@ -336,7 +336,7 @@ namespace MomEase.infra.Services
                     PostId = postId,
                     UserId = userId,
                     Text = dto.Text.Trim(),
-                    CreatedAt = DateTime.Now
+                    CreatedAt = DateTime.Now.AddHours(1)
                 };
 
                 var added = await _communityRepository.AddCommentAsync(comment);
@@ -468,7 +468,7 @@ namespace MomEase.infra.Services
                     throw new ArgumentException("Comment text cannot be empty");
 
                 comment.Text = dto.Text.Trim();
-                comment.UpdatedAt = DateTime.Now;
+                comment.UpdatedAt = DateTime.Now.AddHours(1);
 
                 var updated = await _communityRepository.UpdateCommentAsync(comment);
 
@@ -727,7 +727,7 @@ namespace MomEase.infra.Services
                 {
                     PostId = postId,
                     UserId = userId,
-                    SavedAt = DateTime.Now
+                    SavedAt = DateTime.Now.AddHours(1)
                 };
 
                 var result = await _communityRepository.SavePostAsync(savedPost);
@@ -869,7 +869,7 @@ namespace MomEase.infra.Services
                     PostId = postId,
                     ReporterId = userId,
                     Reason = dto.Reason.Trim(),
-                    CreatedAt = DateTime.Now
+                    CreatedAt = DateTime.Now.AddHours(1)
                 };
 
                 var added = await _communityRepository.AddReportAsync(report);
@@ -1120,7 +1120,7 @@ namespace MomEase.infra.Services
                     Action = dto.Action,
                     AdminNote = dto.AdminNote?.Trim(),
                     CreatedAt = report.CreatedAt,
-                    ReviewedAt = DateTime.Now,
+                    ReviewedAt = DateTime.Now.AddHours(1),
                     IsReviewed = true
                 };
             }
@@ -1149,7 +1149,7 @@ namespace MomEase.infra.Services
                     CommentId = commentId,
                     UserId = userId,
                     Text = dto.Text.Trim(),
-                    CreatedAt = DateTime.Now
+                    CreatedAt = DateTime.Now.AddHours(1)
                 };
 
                 var added = await _communityRepository.AddReplyAsync(reply);
@@ -1255,7 +1255,7 @@ namespace MomEase.infra.Services
                     throw new ArgumentException("Reply text cannot be empty");
 
                 reply.Text = dto.Text.Trim();
-                reply.UpdatedAt = DateTime.Now;
+                reply.UpdatedAt = DateTime.Now.AddHours(1);
 
                 var updated = await _communityRepository.UpdateReplyAsync(reply);
                 return MapToReplyDto(updated, userId);

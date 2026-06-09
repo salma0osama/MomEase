@@ -34,6 +34,6 @@ namespace MomEase.core.Entities
         public bool IsActive { get; set; } = true;
 
         [Required]
-        public DateTime CreatedAt { get; set; } = DateTime.Now;
+        public DateTime CreatedAt { get; set; } = DateTime.Now.AddHours(1);
     }
 }

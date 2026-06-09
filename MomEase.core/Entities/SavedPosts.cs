@@ -15,7 +15,7 @@ namespace MomEase.core.Entities
         public int PostId { get; set; }
 
         [Required]
-        public DateTime SavedAt { get; set; } = DateTime.Now;
+        public DateTime SavedAt { get; set; } = DateTime.Now.AddHours(1);
 
         // Navigation Properties
         [ForeignKey("UserId")]

@@ -43,7 +43,7 @@ namespace MomEase.infra.Services
                     throw new UnauthorizedAccessException("You are not authorized to add records for this child");
 
                 // Validate date
-                if (dto.SleepDate > DateTime.Now)
+                if (dto.SleepDate > DateTime.Now.AddHours(1))
                     throw new ArgumentException("Sleep date cannot be in the future");
 
                 // ✅ Parse times من string لـ TimeSpan
@@ -90,7 +90,7 @@ namespace MomEase.infra.Services
                     Quality = dto.Quality,          // ✅ NEW
                     Notes = dto.Notes,
                     SleepRefId = reference?.SleepRefId,
-                    CreatedAt = DateTime.Now
+                    CreatedAt = DateTime.Now.AddHours(1)
                 };
 
                 var createdRecord = await _sleepRecordRepository.AddSleepRecordAsync(record);
@@ -191,7 +191,7 @@ namespace MomEase.infra.Services
 
                 if (dto.SleepDate.HasValue)
                 {
-                    if (dto.SleepDate.Value > DateTime.Now)
+                    if (dto.SleepDate.Value > DateTime.Now.AddHours(1))
                         throw new ArgumentException("Sleep date cannot be in the future");
                     record.SleepDate = dto.SleepDate.Value;
                 }
@@ -430,7 +430,7 @@ namespace MomEase.infra.Services
                 if (child.UserId != userId)
                     throw new UnauthorizedAccessException("You are not authorized to access this child's records");
 
-                var today = DateTime.Now.Date;
+                var today = DateTime.Now.AddHours(1).Date;
                 var weekStart = today.AddDays(-6);  // آخر 7 أيام
                 var weekEnd = today;
 
@@ -499,7 +499,7 @@ namespace MomEase.infra.Services
                 if (child.UserId != userId)
                     throw new UnauthorizedAccessException("You are not authorized to access this child's records");
 
-                var today = DateTime.Now.Date;
+                var today = DateTime.Now.AddHours(1).Date;
                 var monthStart = new DateTime(today.Year, today.Month, 1);
                 var monthEnd = today;  // ✅ Changed: لحد النهاردة بس مش آخر الشهر
 
@@ -715,7 +715,7 @@ namespace MomEase.infra.Services
         /// </summary>
         private int CalculateAgeInMonths(DateTime birthDate)
         {
-            var today = DateTime.Now;
+            var today = DateTime.Now.AddHours(1);
             var months = ((today.Year - birthDate.Year) * 12) + today.Month - birthDate.Month;
 
             if (today.Day < birthDate.Day)

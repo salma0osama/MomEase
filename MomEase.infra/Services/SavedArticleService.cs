@@ -42,7 +42,7 @@ namespace MomEase.infra.Services
             {
                 UserId = userId,
                 ArticleId = articleId,
-                SavedAt = DateTime.Now
+                SavedAt = DateTime.Now.AddHours(1)
             };
 
             var created = await _savedArticleRepo.CreateAsync(savedArticle);

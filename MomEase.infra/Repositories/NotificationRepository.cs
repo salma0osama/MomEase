@@ -63,7 +63,7 @@ namespace MomEase.infra.Repositories
             foreach (var notification in notifications)
             {
                 notification.IsRead = true;
-                notification.ReadAt = DateTime.Now;
+                notification.ReadAt = DateTime.Now.AddHours(1);
             }
 
             await _context.SaveChangesAsync();

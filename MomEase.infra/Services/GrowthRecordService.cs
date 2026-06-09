@@ -27,7 +27,7 @@ namespace MomEase.infra.Services
                 throw new UnauthorizedAccessException("Access denied");
 
             // ✅ التحقق من عدم وجود record في نفس اليوم
-            var recordDate = DateTime.Now;
+            var recordDate = DateTime.Now.AddHours(1);
             var alreadyExists = await _growthRepo.ExistsForDateAsync(childId, recordDate);
             if (alreadyExists)
                 throw new InvalidOperationException("A growth record already exists for today. You can update the existing record instead.");
@@ -229,7 +229,7 @@ namespace MomEase.infra.Services
             if (child == null || child.UserId != userId)
                 throw new UnauthorizedAccessException("Access denied");
 
-            var today = DateTime.Now.Date;
+            var today = DateTime.Now.AddHours(1).Date;
             var dayOfWeek = (int)today.DayOfWeek;
             var weekStart = today.AddDays(-dayOfWeek);
             var weekEnd = weekStart.AddDays(6);
@@ -270,7 +270,7 @@ namespace MomEase.infra.Services
             if (child == null || child.UserId != userId)
                 throw new UnauthorizedAccessException("Access denied");
 
-            var today = DateTime.Now;
+            var today = DateTime.Now.AddHours(1);
             var monthStart = new DateTime(today.Year, today.Month, 1);
             var monthEnd = monthStart.AddMonths(1).AddDays(-1);
 
