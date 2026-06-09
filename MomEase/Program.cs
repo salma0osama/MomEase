@@ -113,9 +113,9 @@ namespace MomEase
                 builder.Services.AddScoped<IGrowthReportRepository, GrowthReportRepository>();
                 builder.Services.AddScoped<IGrowthReportService, GrowthReportService>();
                 // ChatBot Services
+                builder.Services.AddHttpClient<ChatBotService>();
                 builder.Services.AddScoped<IChatBotRepository, ChatBotRepository>();
                 builder.Services.AddScoped<IChatBotService, ChatBotService>();
-                builder.Services.AddHttpClient<ILlamaService, LlamaService>();
 
                 // Article Category Repository & Service
                 builder.Services.AddScoped<IArticleCategoryRepository, ArticleCategoryRepository>();

@@ -1,30 +1,52 @@
-﻿using MomEase.core.DTOS.ChatBot;
+﻿using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
+using MomEase.core.DTOS.ChatBot;
 using MomEase.core.Entities;
 using MomEase.core.Interfaces;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using MomEase.infra.Helpers;
+using System.Text.Json;
 
 namespace MomEase.infra.Services
 {
     public class ChatBotService : IChatBotService
     {
-        private readonly IChatBotRepository _chatRepository;
-        private readonly ILlamaService _llamaService;
+        private readonly IChatBotRepository _chatBotRepository;
+        private readonly HttpClient _httpClient;
+        private readonly ILogger<ChatBotService> _logger;
+        private readonly IHttpContextAccessor _httpContextAccessor;
+        private readonly string _baseUrl;
+        private readonly string _modelName;
+        private readonly int _maxTokens;
+        private readonly string _apiKey;
 
         public ChatBotService(
-            IChatBotRepository chatRepository,
-            ILlamaService llamaService)
+            IChatBotRepository chatBotRepository,
+            HttpClient httpClient,
+            ILogger<ChatBotService> logger,
+            IHttpContextAccessor httpContextAccessor,
+            IConfiguration config)
         {
-            _chatRepository = chatRepository ?? throw new ArgumentNullException(nameof(chatRepository));
-            _llamaService = llamaService ?? throw new ArgumentNullException(nameof(llamaService));
+            _chatBotRepository = chatBotRepository ?? throw new ArgumentNullException(nameof(chatBotRepository));
+            _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
+            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+            _httpContextAccessor = httpContextAccessor;
+
+            _baseUrl = config["Groq:BaseUrl"] ?? "https://api.groq.com/openai/v1";
+            _modelName = config["Groq:Model"] ?? "llama3-8b-8192";
+            _maxTokens = int.Parse(config["Groq:MaxTokens"] ?? "512");
+            _apiKey = config["Groq:ApiKey"];
+
+            if (string.IsNullOrWhiteSpace(_apiKey))
+                throw new InvalidOperationException("Groq API Key is not configured in appsettings.json");
+
+            _httpClient.Timeout = TimeSpan.FromSeconds(30);
+
+            _logger.LogInformation($"🤖 ChatBot initialized with Groq at {_baseUrl}, Model: {_modelName}");
         }
 
         public async Task<ChatResponseDto> SendMessageAsync(ChatRequestDto request)
         {
-            // Validate input parameters
             if (request == null)
                 throw new ArgumentNullException(nameof(request), "Request cannot be null");
 
@@ -36,16 +58,18 @@ namespace MomEase.infra.Services
 
             try
             {
-                Console.WriteLine($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] 📨 Message received from user {request.UserId}: {request.Message.Substring(0, Math.Min(50, request.Message.Length))}");
-                // Get or create chat session for user
-                var chat = await _chatRepository.GetOrCreateChatAsync(request.UserId);
+                var messageLanguage = DetectLanguage(request.Message);
+                var isAr = messageLanguage == "ar";
+
+                _logger.LogInformation($"📨 Message from user {request.UserId}: {request.Message.Substring(0, Math.Min(50, request.Message.Length))}");
+
+                var chat = await _chatBotRepository.GetOrCreateChatAsync(request.UserId);
 
                 if (chat == null)
                     throw new InvalidOperationException("Failed to create or retrieve chat session");
 
-                Console.WriteLine($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] ✅ Chat {chat.ChatId} retrieved/created");
+                _logger.LogInformation($"✅ Chat {chat.ChatId} retrieved/created");
 
-                // Save user's message to database
                 var userMessage = new ChatMessages
                 {
                     ChatId = chat.ChatId,
@@ -54,76 +78,71 @@ namespace MomEase.infra.Services
                     CreatedAt = DateTime.Now
                 };
 
-                await _chatRepository.AddMessageAsync(userMessage);
-                Console.WriteLine($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] ✅ User message saved");
-                // Get bot's reply from LLaMA API
+                await _chatBotRepository.AddMessageAsync(userMessage);
+                _logger.LogInformation($"✅ User message saved");
+
                 string reply;
                 try
                 {
-                    Console.WriteLine($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] 🤖 Calling LLaMA API...");
-                    // Get last 6 messages for context
-                    var history = await _chatRepository.GetChatHistoryAsync(chat.ChatId);
+                    _logger.LogInformation($"🤖 Calling Groq API...");
 
-                    var lastMessages = history
-                        .OrderByDescending(m => m.CreatedAt)
-                        .Take(6)
-                        .Reverse()
-                        .Select(m => (
-                            role: m.Sender == "User" ? "user" : "assistant",
-                            content: m.Message
-                        ))
-                        .ToList();
-
-                    // Add current user message
-                    lastMessages.Add(("user", request.Message.Trim()));
-
-                    var arabicKeywords = new[] { "نزيف شديد", "إغماء", "مش قادرة أتنفس", "أفكار انتحار", "أذى لنفسي" };
-                    var englishKeywords = new[] { "suicide", "heavy bleeding", "can't breathe" };
-
-                    if (arabicKeywords.Any(k => request.Message.Contains(k, StringComparison.OrdinalIgnoreCase)))
+                    if (CheckCriticalKeywords(request.Message, isAr))
                     {
-                        reply = @"أنا قلق جداً بشأن ما تصفينه. 
-              إذا كنتِ تعانين من أعراض شديدة، يرجى طلب العناية الطبية الفورية أو الذهاب إلى أقرب غرفة طوارئ فوراً. 
-              إذا كان الأمر عاجلاً، اتصلي بخدمات الطوارئ الآن. سلامتك هي أهم شيء.";
-                        Console.WriteLine($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] ⚠️ Critical keywords detected (Arabic)");
-                    }
-                    else if (englishKeywords.Any(k => request.Message.Contains(k, StringComparison.OrdinalIgnoreCase)))
-                    {
-                        reply = @"I'm really concerned about what you're describing.
-              If you're experiencing severe symptoms, please seek immediate medical attention or go to the nearest emergency room immediately.
-              If this is urgent, call emergency services right now.
-              Your safety is the most important thing.";
-                        Console.WriteLine($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] ⚠️ Critical keywords detected (English)");
+                        reply = isAr
+                            ? "⚠️ أنا قلق جداً بشأن ما تصفينه. إذا كان الأمر عاجلاً، يرجى طلب العناية الطبية الفورية أو الذهاب إلى أقرب غرفة طوارئ فوراً. سلامتك هي أهم شيء."
+                            : "⚠️ I'm really concerned about what you're describing. If this is urgent, please seek immediate medical attention or go to the nearest emergency room right away. Your safety is the most important thing.";
+
+                        _logger.LogWarning($"⚠️ Critical keywords detected from user {request.UserId}");
                     }
                     else
                     {
-                        reply = await _llamaService.GenerateReplyAsync(lastMessages);
-                        Console.WriteLine($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] ✅ Reply generated from LLaMA");
+                        var history = await _chatBotRepository.GetChatHistoryAsync(chat.ChatId);
+                        var lastMessages = history
+                            .OrderByDescending(m => m.CreatedAt)
+                            .Take(6)
+                            .Reverse()
+                            .Select(m => (
+                                role: m.Sender == "User" ? "user" : "assistant",
+                                content: m.Message
+                            ))
+                            .ToList();
+
+                        lastMessages.Add(("user", request.Message.Trim()));
+
+                        reply = await GetGroqReplyAsync(lastMessages, isAr);
                     }
 
                     if (string.IsNullOrWhiteSpace(reply))
-                        reply = "Sorry, an error occurred while processing your message. Please try again.";
-                    Console.WriteLine($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] ❌ Empty reply received");
+                    {
+                        reply = isAr
+                            ? "معاذير، حدث خطأ. حاولي مرة أخرى."
+                            : "Sorry, an error occurred. Please try again.";
+
+                        _logger.LogWarning($"⚠️ Empty reply received from Groq");
+                    }
                 }
                 catch (HttpRequestException ex)
                 {
-
-                    // External API connection error
-                    reply = "Sorry, the chatbot service is temporarily unavailable. Please try again later.";
-
-                    // Log the error (optional: you can use ILogger)
-                    Console.WriteLine($"LLaMA API Error: {ex.Message}");
+                    _logger.LogError(ex, "❌ Groq connection error");
+                    reply = isAr
+                        ? "معاذير، خدمة الدردشة غير متاحة حالياً. حاولي مرة أخرى لاحقاً."
+                        : "Sorry, the chatbot service is temporarily unavailable. Please try again later.";
+                }
+                catch (TaskCanceledException ex)
+                {
+                    _logger.LogError(ex, "❌ Groq request timeout");
+                    reply = isAr
+                        ? "طلب الرد استغرق وقتاً طويلاً. حاولي مرة أخرى."
+                        : "The response took too long. Please try again.";
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] ❌ UNEXPECTED ERROR: {ex.Message}");
-                    Console.WriteLine($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] ❌ Stack Trace: {ex.StackTrace}");
-                    // Unexpected error from LLaMA service
-                    reply = "Sorry, an unexpected error occurred.";
-                    Console.WriteLine($"Unexpected error in LLaMA service: {ex.Message}");
+                    _logger.LogError(ex, "❌ Unexpected error in Groq service");
+                    reply = isAr
+                        ? "حدث خطأ غير متوقع. حاولي مرة أخرى."
+                        : "An unexpected error occurred. Please try again.";
                 }
 
-                // Save bot's reply to database
                 var botMessage = new ChatMessages
                 {
                     ChatId = chat.ChatId,
@@ -132,8 +151,8 @@ namespace MomEase.infra.Services
                     CreatedAt = DateTime.Now
                 };
 
-                await _chatRepository.AddMessageAsync(botMessage);
-                Console.WriteLine($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] ✅ Bot message saved");
+                await _chatBotRepository.AddMessageAsync(botMessage);
+                _logger.LogInformation($"✅ Bot message saved");
 
                 return new ChatResponseDto
                 {
@@ -143,29 +162,143 @@ namespace MomEase.infra.Services
             }
             catch (Exception ex) when (!(ex is ArgumentException || ex is InvalidOperationException))
             {
-                // Log unexpected errors
-                Console.WriteLine($"Error in SendMessageAsync: {ex.Message}");
+                _logger.LogError(ex, "❌ Error in SendMessageAsync");
                 throw new InvalidOperationException("Failed to send message. Please try again.", ex);
             }
+        }
 
+        private async Task<string> GetGroqReplyAsync(List<(string role, string content)> messages, bool isAr)
+        {
+            try
+            {
+                var systemPrompt = isAr
+                    ? @"أنتِ مساعدة صحية متخصصة ومتعاطفة للأمهات بعد الولادة.
+                STRICT RULES:
+                1. يجب الرد بالعربية الفصحى فقط بدون أي كلمة إنجليزية إطلاقاً
+                2. ابدئي دائماً بالتعاطف والتفهم لمشاعر الأم
+                3. قدمي نصائح عملية ومحددة وليس كلاماً عاماً
+                4. لا تقولي روحي للطبيب إلا في حالات الخطر الحقيقي فقط
+                5. اذكري خطوات عملية مفصلة
+                6. ردي بخمس إلى ست جمل مفيدة وعملية ومتعاطفة
+                7. اختمي دائماً بجملة تشجيعية تدعم الأم
+                8. لا تعطي تشخيصات طبية محددة
+                9. قولي روحي للطبيب فقط لو ذكرت نزيف أو أفكار إيذاء النفس أو إغماء"
+                    : @"You are a specialized and deeply empathetic postpartum health assistant.
+                STRICT RULES:
+                1. Respond in English ONLY, never use Arabic words
+                2. Always start with empathy and validation of the mother's feelings
+                3. Give practical and specific advice, not generic responses
+                4. Only say 'see a doctor' in genuinely dangerous situations
+                5. Include detailed practical steps
+                6. Respond with 5-6 helpful, practical and empathetic sentences
+                7. Always end with an encouraging and supportive sentence
+                8. Do NOT provide specific medical diagnoses
+                9. Only advise seeing a doctor for bleeding, self-harm thoughts, or fainting";
+
+                var requestBody = new
+                {
+                    model = _modelName,
+                    messages = new[] { new { role = "system", content = systemPrompt } }
+                        .Concat(messages.Select(m => new { role = m.role, content = m.content }))
+                        .ToArray(),
+                    temperature = 0.7,
+                    max_tokens = _maxTokens,
+                    top_p = 0.9
+                };
+
+                _logger.LogInformation($"📤 Sending request to Groq with {messages.Count} messages");
+
+                var httpRequest = new HttpRequestMessage(HttpMethod.Post, $"{_baseUrl}/chat/completions")
+                {
+                    Content = new StringContent(
+                        JsonSerializer.Serialize(requestBody),
+                        System.Text.Encoding.UTF8,
+                        "application/json")
+                };
+
+                httpRequest.Headers.Authorization =
+                    new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", _apiKey);
+
+                var response = await _httpClient.SendAsync(httpRequest);
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    var errorContent = await response.Content.ReadAsStringAsync();
+                    _logger.LogError($"❌ Groq error: {response.StatusCode} - {errorContent}");
+                    throw new HttpRequestException($"Groq returned {response.StatusCode}");
+                }
+
+                var jsonResponse = await response.Content.ReadAsStringAsync();
+                var jsonDoc = JsonSerializer.Deserialize<JsonElement>(jsonResponse);
+
+                var reply = jsonDoc
+                    .GetProperty("choices")[0]
+                    .GetProperty("message")
+                    .GetProperty("content")
+                    .GetString()?.Trim();
+
+                if (string.IsNullOrWhiteSpace(reply))
+                    throw new InvalidOperationException("Empty response from Groq");
+
+                _logger.LogInformation($"✅ Reply received from Groq ({reply.Length} chars)");
+                return reply;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "❌ Error in GetGroqReplyAsync");
+                throw;
+            }
+        }
+
+        private bool CheckCriticalKeywords(string message, bool isAr)
+        {
+            var criticalAr = new[]
+            {
+                "نزيف شديد",
+                "إغماء",
+                "مش قادرة أتنفس",
+                "أفكار انتحار",
+                "أؤذي نفسي",
+                "حالة طوارئ"
+            };
+
+            var criticalEn = new[]
+            {
+                "severe bleeding",
+                "unconscious",
+                "can't breathe",
+                "suicide",
+                "self harm",
+                "emergency"
+            };
+
+            var keywords = isAr ? criticalAr : criticalEn;
+            return keywords.Any(k => message.Contains(k, StringComparison.OrdinalIgnoreCase));
+        }
+
+        private string DetectLanguage(string text)
+        {
+            var arabicChars = new[] { 'ا', 'ب', 'ت', 'ث', 'ج', 'ح', 'خ', 'د', 'ذ', 'ر', 'ز', 'س', 'ش', 'ص', 'ض', 'ط', 'ظ', 'ع', 'غ', 'ف', 'ق', 'ك', 'ل', 'م', 'ن', 'ه', 'و', 'ي', 'ة' };
+            var arabicCount = text.Count(c => arabicChars.Contains(c));
+            var englishCount = text.Count(c => char.IsLetter(c) && !arabicChars.Contains(c));
+            return arabicCount > englishCount ? "ar" : "en";
         }
 
         public async Task<ChatHistoryDto> GetChatHistoryAsync(int userId)
         {
-            // Validate userId
             if (userId <= 0)
-                throw new ArgumentException("Invalid user ID. User ID must be greater than zero.", nameof(userId));
+                throw new ArgumentException("Invalid user ID", nameof(userId));
 
             try
             {
-                // Get or create chat session for user
-                var chat = await _chatRepository.GetOrCreateChatAsync(userId);
+                _logger.LogInformation($"📖 Fetching chat history for user {userId}");
+
+                var chat = await _chatBotRepository.GetOrCreateChatAsync(userId);
 
                 if (chat == null)
                     throw new InvalidOperationException("Failed to retrieve chat session");
 
-                // Get all messages for this chat
-                var messages = await _chatRepository.GetChatHistoryAsync(chat.ChatId);
+                var messages = await _chatBotRepository.GetChatHistoryAsync(chat.ChatId);
 
                 return new ChatHistoryDto
                 {
@@ -180,11 +313,11 @@ namespace MomEase.infra.Services
             }
             catch (Exception ex)
             {
-                // Log the error
-                Console.WriteLine($"Error in GetChatHistoryAsync: {ex.Message}");
+                _logger.LogError(ex, "❌ Error in GetChatHistoryAsync");
                 throw new InvalidOperationException("Failed to retrieve chat history. Please try again.", ex);
             }
         }
+
         public async Task<bool> DeleteChatAsync(int userId, int chatId)
         {
             if (userId <= 0)
@@ -195,29 +328,29 @@ namespace MomEase.infra.Services
 
             try
             {
-                // ✅ تحقق من أن الـ chat ينتمي للـ user
-                var chat = await _chatRepository.GetOrCreateChatAsync(userId);
+                _logger.LogInformation($"🗑️ Deleting chat {chatId} for user {userId}");
+
+                var chat = await _chatBotRepository.GetOrCreateChatAsync(userId);
 
                 if (chat.ChatId != chatId)
                     throw new UnauthorizedAccessException("You don't have permission to delete this chat");
 
-                // احذف الـ Chat
-                var result = await _chatRepository.DeleteChatAsync(chatId);
+                var result = await _chatBotRepository.DeleteChatAsync(chatId);
 
                 if (result)
                 {
-                    Console.WriteLine($"✅ Chat {chatId} deleted for user {userId}");
+                    _logger.LogInformation($"✅ Chat {chatId} deleted successfully");
                     return true;
                 }
                 else
                 {
-                    Console.WriteLine($"⚠️ Chat {chatId} not found");
+                    _logger.LogWarning($"⚠️ Chat {chatId} not found");
                     return false;
                 }
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"❌ Error in DeleteChatAsync: {ex.Message}");
+                _logger.LogError(ex, "❌ Error in DeleteChatAsync");
                 throw;
             }
         }
