@@ -58,18 +58,14 @@ namespace MomEase.infra.Repositories
             {
                 var chat = await _context.ChatBots
                     .Include(c => c.ChatMessages)
-                    .FirstOrDefaultAsync(c => c.ChatId == chatId);
+                    .FirstOrDefaultAsync(c => c.ChatId == chatId);  // ✅ ابحث بـ chatId مباشرة
 
                 if (chat == null)
                     return false;
 
-                // احذف الرسائل أولاً (foreign key)
                 _context.ChatMessages.RemoveRange(chat.ChatMessages);
-
-                // ثم احذف الـ Chat
                 _context.ChatBots.Remove(chat);
                 await _context.SaveChangesAsync();
-
                 return true;
             }
             catch (Exception ex)

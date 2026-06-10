@@ -32,22 +32,18 @@ namespace PostCare.API.Controllers
 
                 if (string.IsNullOrEmpty(userIdClaim))
                 {
-                    if (request?.UserId > 0)
-                    {
-                        userIdClaim = request.UserId.ToString();
-                    }
-                    else
-                    {
-                        return Unauthorized(new { message = "User not authenticated" });
-                    }
+                    return Unauthorized(new { message = "User not authenticated" });
                 }
 
                 if (!int.TryParse(userIdClaim, out int userId))
                     return BadRequest(new { message = "Invalid user ID format" });
 
                 // ✅ Verify userId matches
-                if (request.UserId != userId)
-                    return Forbid();
+                var requestDto = new ChatRequestDto
+                {
+                    UserId = userId,  // ✅ من التوكن
+                    Message = request.Message
+                };
 
                 _logger.LogInformation($"📨 Message from user {userId}: {request.Message.Substring(0, Math.Min(30, request.Message.Length))}...");
 
@@ -129,30 +125,29 @@ namespace PostCare.API.Controllers
         }
 
         /// <summary>
-        /// Delete a chat
+        /// Delete the user's current chat
         /// </summary>
-        [HttpDelete("delete/{chatId}")]
-        public async Task<IActionResult> DeleteChat(int chatId)
+        [HttpDelete("clear")]  // ✅ بدون chatId
+        public async Task<IActionResult> DeleteChat()
         {
             try
             {
                 var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
+                if (string.IsNullOrEmpty(userIdClaim))
+                    return Unauthorized(new { message = "User not authenticated" });
+
                 if (!int.TryParse(userIdClaim, out int userId))
                     return Unauthorized();
 
-                _logger.LogInformation($"🗑️ Deleting chat {chatId} for user {userId}");
+                _logger.LogInformation($"🗑️ Deleting chat for user {userId}");
 
-                var result = await _chatService.DeleteChatAsync(userId, chatId);
+                var result = await _chatService.DeleteChatAsync();
 
                 if (result)
                     return Ok(new { success = true, message = "Chat deleted successfully" });
                 else
                     return NotFound(new { success = false, message = "Chat not found" });
-            }
-            catch (UnauthorizedAccessException)
-            {
-                return Forbid();
             }
             catch (Exception ex)
             {
