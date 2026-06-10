@@ -172,28 +172,34 @@ namespace MomEase.infra.Services
             try
             {
                 var systemPrompt = isAr
-                    ? @"أنتِ مساعدة صحية متخصصة ومتعاطفة للأمهات بعد الولادة.
-                STRICT RULES:
-                1. يجب الرد بالعربية الفصحى فقط بدون أي كلمة إنجليزية إطلاقاً
-                2. ابدئي دائماً بالتعاطف والتفهم لمشاعر الأم
-                3. قدمي نصائح عملية ومحددة وليس كلاماً عاماً
-                4. لا تقولي روحي للطبيب إلا في حالات الخطر الحقيقي فقط
-                5. اذكري خطوات عملية مفصلة
-                6. ردي بخمس إلى ست جمل مفيدة وعملية ومتعاطفة
-                7. اختمي دائماً بجملة تشجيعية تدعم الأم
-                8. لا تعطي تشخيصات طبية محددة
-                9. قولي روحي للطبيب فقط لو ذكرت نزيف أو أفكار إيذاء النفس أو إغماء"
-                    : @"You are a specialized and deeply empathetic postpartum health assistant.
-                STRICT RULES:
-                1. Respond in English ONLY, never use Arabic words
-                2. Always start with empathy and validation of the mother's feelings
-                3. Give practical and specific advice, not generic responses
-                4. Only say 'see a doctor' in genuinely dangerous situations
-                5. Include detailed practical steps
-                6. Respond with 5-6 helpful, practical and empathetic sentences
-                7. Always end with an encouraging and supportive sentence
-                8. Do NOT provide specific medical diagnoses
-                9. Only advise seeing a doctor for bleeding, self-harm thoughts, or fainting";
+                        ? @"أنتِ مساعدة صحية متخصصة للأمهات بعد الولادة، لديك معرفة عميقة بالرعاية الصحية النسائية والعناية بالأطفال الحديثي الولادة.
+                    
+                    STRICT RULES:
+                    1. يجب الرد بالعربية الفصحى فقط
+                    2. تجنبي الكليشيهات والعبارات المكررة (مثل 'أفهم قلقك')
+                    3. اسألي أسئلة متابعة محددة عن الأعراض
+                    4. قدمي خطوات عملية مفصلة وواضحة
+                    5. ركزي على الحلول الفعلية وليس التعاطف الفارغ
+                    6. اذكري الأرقام والمدد الزمنية المحددة
+                    7. لا تعطي تشخيصات طبية - فقط معلومات عامة
+                    8. ردي بـ 4-6 جمل فقط، مركزة وعملية
+                    9. قولي 'استشيري الطبيب فوراً' فقط لـ: نزيف شديد، فقدان وعي، أفكار إيذاء النفس
+                    10. استخدمي لغة طبيعية ومختلفة في كل رد - لا تكرري الجمل الافتتاحية"
+                        : @"You are a specialized postpartum health assistant with deep knowledge of women's health and newborn care. You provide evidence-based advice grounded in medical research and clinical practice.
+                    
+                    STRICT RULES:
+                    1. Respond in English ONLY - no Arabic words
+                    2. Avoid clichés and repetitive phrases (never open with 'I understand your concern')
+                    3. Ask specific follow-up questions about symptoms
+                    4. Give detailed, actionable steps with exact measurements/timings
+                    5. Focus on practical solutions over emotional validation
+                    6. Include specific numbers, durations, and medical parameters
+                    7. Do NOT provide medical diagnoses - give general health information only
+                    8. Keep responses to 4-6 sentences, focused and practical
+                    9. Only say 'seek immediate medical care' for: severe bleeding, fainting, self-harm thoughts
+                    10. Use varied, natural language in each response - different opening phrases
+                    11. When discussing breastfeeding, mention: latch position, pain scale (0-10), duration
+                    12. For newborn issues, include: normal ranges, feeding schedules, warning signs";
 
                 var requestBody = new
                 {
@@ -318,33 +324,34 @@ namespace MomEase.infra.Services
             }
         }
 
-        public async Task<bool> DeleteChatAsync(int userId, int chatId)
+        public async Task<bool> DeleteChatAsync()
         {
-            if (userId <= 0)
-                throw new ArgumentException("Invalid user ID", nameof(userId));
-
-            if (chatId <= 0)
-                throw new ArgumentException("Invalid chat ID", nameof(chatId));
-
             try
             {
-                _logger.LogInformation($"🗑️ Deleting chat {chatId} for user {userId}");
+                // ✅ اجلب userId من التوكن
+                var userIdClaim = _httpContextAccessor.HttpContext?.User
+                    .FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+
+                if (string.IsNullOrEmpty(userIdClaim) || !int.TryParse(userIdClaim, out int userId))
+                    throw new ArgumentException("Invalid or missing user ID in token");
+
+                _logger.LogInformation($"🗑️ Deleting chat for user {userId}");
 
                 var chat = await _chatBotRepository.GetOrCreateChatAsync(userId);
 
-                if (chat.ChatId != chatId)
-                    throw new UnauthorizedAccessException("You don't have permission to delete this chat");
+                if (chat == null)
+                    return false;
 
-                var result = await _chatBotRepository.DeleteChatAsync(chatId);
+                var result = await _chatBotRepository.DeleteChatAsync(chat.ChatId);
 
                 if (result)
                 {
-                    _logger.LogInformation($"✅ Chat {chatId} deleted successfully");
+                    _logger.LogInformation($"✅ Chat {chat.ChatId} deleted successfully");
                     return true;
                 }
                 else
                 {
-                    _logger.LogWarning($"⚠️ Chat {chatId} not found");
+                    _logger.LogWarning($"⚠️ Chat {chat.ChatId} not found");
                     return false;
                 }
             }

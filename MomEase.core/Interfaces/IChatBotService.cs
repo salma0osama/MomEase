@@ -11,6 +11,6 @@ namespace MomEase.core.Interfaces
     {
         Task<ChatResponseDto> SendMessageAsync(ChatRequestDto request);
         Task<ChatHistoryDto> GetChatHistoryAsync(int userId);
-        Task<bool> DeleteChatAsync(int userId, int chatId);
+        Task<bool> DeleteChatAsync();
     }
 }
