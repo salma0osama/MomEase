@@ -59,11 +59,46 @@ namespace MomEase.infra.Repositories
         // DELETE /api/children/{id} - حذف طفل
         public async Task<bool> DeleteChildAsync(Child child)
         {
+            // 1. GrowthRecords
+            var growthRecords = await _context.GrowthRecords
+                .Where(g => g.ChildId == child.ChildId).ToListAsync();
+            _context.GrowthRecords.RemoveRange(growthRecords);
+
+            // 2. GrowthReports
+            var growthReports = await _context.GrowthReports
+                .Where(g => g.ChildId == child.ChildId).ToListAsync();
+            _context.GrowthReports.RemoveRange(growthReports);
+
+            // 3. ChildSleepRecords
+            var sleepRecords = await _context.ChildSleepRecords
+                .Where(s => s.ChildId == child.ChildId).ToListAsync();
+            _context.ChildSleepRecords.RemoveRange(sleepRecords);
+
+            // 4. ChildFeedingRecords
+            var feedingRecords = await _context.ChildFeedingRecords
+                .Where(f => f.ChildId == child.ChildId).ToListAsync();
+            _context.ChildFeedingRecords.RemoveRange(feedingRecords);
+
+            // 5. SkinAnalyses (Restrict)
+            var skinAnalyses = await _context.SkinAnalyses
+                .Where(s => s.ChildId == child.ChildId).ToListAsync();
+            _context.SkinAnalyses.RemoveRange(skinAnalyses);
+
+            // 6. CryAnalyses (Restrict)
+            var cryAnalyses = await _context.CryAnalyses
+                .Where(c => c.ChildId == child.ChildId).ToListAsync();
+            _context.CryAnalyses.RemoveRange(cryAnalyses);
+
+            // 7. DailyTrackingReminders (Restrict)
+            var reminders = await _context.DailyTrackingReminders
+                .Where(d => d.ChildId == child.ChildId).ToListAsync();
+            _context.DailyTrackingReminders.RemoveRange(reminders);
+
+            // ChildVaccinations بتتمسح Cascade تلقائي
             _context.Children.Remove(child);
             await _context.SaveChangesAsync();
             return true;
         }
-
         // POST /api/children/{id}/photo - تحديث صورة الطفل
         public async Task<Child> UpdateChildPhotoAsync(int childId, string photoUrl)
         {
